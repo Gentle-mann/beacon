@@ -560,3 +560,94 @@ a { color: #b8f0cb; }
   .ramp-live .bpm-readout { flex-direction: column; align-items: flex-start; gap: 0; }
   .bpm-readout output { font-size: 3.75rem; }
 }
+
+/* ---- breath panel ------------------------------------------------------- */
+
+.right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+
+.breath {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.breath-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.breath-readout strong,
+.breath-target strong {
+  display: block;
+  font-family: var(--mono);
+  font-size: 3.4rem;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Green on the rise, so the number visibly moves with the breath. */
+.breath-readout strong.inhale {
+  color: var(--ok);
+}
+
+.breath-target strong {
+  font-size: 2rem;
+  color: #e8c05a;
+}
+
+.breath-readout span,
+.breath-target span {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--dim);
+}
+
+.breath-target {
+  text-align: right;
+}
+
+.breath-wave {
+  width: 100%;
+  height: 74px;
+  background: #0e0e10;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.breath-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.btn-src {
+  font-size: 0.78rem;
+}
+
+.btn-src-on {
+  border-color: #2f5a3c;
+  background: #1b3a26;
+  color: #b8f0cb;
+}
+
+.breath-note {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  line-height: 1.4;
+  color: var(--dim);
+}

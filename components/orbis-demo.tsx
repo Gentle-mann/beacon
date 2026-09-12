@@ -1,9 +1,11 @@
 "use client";
 
 import { ReactorProvider } from "@reactor-team/js-sdk";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 
+import { BreathPanel } from "@/components/breath-panel";
 import { OrbisPlayer } from "@/components/orbis-player";
+import { useBreathSource } from "@/hooks/use-breath";
 import { StatusPanel } from "@/components/status-panel";
 import { useOrbisSession } from "@/hooks/use-orbis-session";
 import { ORBIS_MODEL_NAME, ORBIS_TRACKS, requestReactorJwt } from "@/lib/orbis";
@@ -43,7 +45,15 @@ export function OrbisDemo() {
 }
 
 function SessionShell({ resetJwt }: { resetJwt: () => void }) {
-  const session = useOrbisSession(resetJwt);
+  const [sliderBpm, setSliderBpm] = useState(14);
+  const breath = useBreathSource(sliderBpm);
+
+  // A ref, not a prop: the arc reads the rate at the instant it starts, and a
+  // value that changes 20x a second should not re-run the session hook.
+  const breathRate = useRef(sliderBpm);
+  breathRate.current = breath.effectiveBpm;
+
+  const session = useOrbisSession(resetJwt, breathRate);
 
   return (
     <div className="session-grid">
@@ -57,7 +67,17 @@ function SessionShell({ resetJwt }: { resetJwt: () => void }) {
         framesEmitted={session.framesEmitted}
         busy={session.busy}
       />
-      <StatusPanel session={session} />
+      <div className="right-column">
+        <BreathPanel
+          breath={breath}
+          sliderBpm={sliderBpm}
+          setSliderBpm={setSliderBpm}
+          targetBpm={session.targetBpm}
+          arcRunning={session.arcRunning}
+          disabled={session.arcRunning}
+        />
+        <StatusPanel session={session} />
+      </div>
     </div>
   );
 }

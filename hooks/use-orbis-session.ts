@@ -54,7 +54,11 @@ function loadPromptLog(): PromptLogEntry[] {
 const MAX_RECOVERY_ATTEMPTS = 6;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-export function useOrbisSession(resetJwt: () => void) {
+export function useOrbisSession(
+  resetJwt: () => void,
+  /** Live rate from the BreathSource: mic when it has one, slider otherwise. */
+  breathRateRef?: { current: number },
+) {
   const { status, connect, disconnect, reconnect, sendCommand } = useReactor(
     (state) => ({
       status: state.status,
@@ -393,18 +397,21 @@ export function useOrbisSession(resetJwt: () => void) {
 
   /** Starting the arc, callable from the UI and from recovery alike. */
   const beginArc = useCallback(() => {
-    arcStartBpm.current = breathBpmRef.current;
+    // Whatever the BreathSource is reporting right now — a detected rate when
+    // the mic has one, the slider otherwise. The arc must start where the
+    // breather actually is, not at a number typed in earlier.
+    arcStartBpm.current = breathRateRef?.current ?? breathBpmRef.current;
     arcStartedAt.current = Date.now();
     lastSendChunk.current = null;
     arcRunningRef.current = true;
     setArcRunning(true);
     setArcElapsed(0);
-    setTargetBpm(breathBpmRef.current);
+    setTargetBpm(arcStartBpm.current);
     setPhase("arc running");
     pushEvent(
-      `arc start ${breathBpmRef.current} bpm -> ${ARC.targetBpm} bpm over ${ARC.descentS}s`,
+      `arc start ${arcStartBpm.current.toFixed(1)} bpm -> ${ARC.targetBpm} bpm over ${ARC.descentS}s`,
     );
-  }, [pushEvent]);
+  }, [breathRateRef, pushEvent]);
   const beginArcRef = useRef(beginArc);
   beginArcRef.current = beginArc;
 
