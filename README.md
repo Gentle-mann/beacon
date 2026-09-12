@@ -5,8 +5,8 @@ breathing guide, and an always-reachable Stop button. Built on Visko Orbis
 Stable (Reactor) for the Live Models Hackathon.
 
 The current experience is bounded to 90 seconds. It starts with a local lagoon
-preview and can connect to generated video once the team has locked a seed and
-tuned its prompts. Breathing guidance is off by default; the user can choose a
+preview and can connect to generated video using the team's selected seed,
+2026. The patient prompts still need live validation. Breathing guidance is off by default; the user can choose a
 starting pace or estimate one locally with a microphone. This prototype does
 not establish respiratory synchronization, clinical benefit, or suitability
 for an entire procedure.
@@ -52,9 +52,10 @@ npm run dev                     # http://localhost:3000
 ```
 
 Node 20.9+. API keys stay server-side; the browser receives only a scoped
-Reactor JWT for a live run. Leave `BEACON_LIVE_ENABLED=false` until Eni has
-locked the seed and tuned the wording. Set `BEACON_LOCKED_SEED` explicitly;
-there is no default live seed. See [session setup and verification](docs/experience.md).
+Reactor JWT for a live run. Leave `BEACON_LIVE_ENABLED=false` until the team
+coordinates patient-flow validation. Set `BEACON_LOCKED_SEED=2026` explicitly,
+matching the current selection in `lib/scene.ts`; `.env.example` includes it.
+See [session setup and verification](docs/experience.md).
 
 | Route | Purpose |
 |---|---|
@@ -102,17 +103,19 @@ The docs were wrong on several of these. These are what we actually measured:
 |---|---|---|---|
 | 0 | Read repo + API | ✅ done | — |
 | 1 | Session harness (connect/warm/start/stay-up, status panel, kill+reap, credit meter) | ✅ done | Eni |
-| — | Seed hunt (8 seeds × 90s, pick calm/no-flare/least-banding, LOCK it) | 🔄 running | Eni |
-| B | Recovery: on loss of `ready` → reattach the original session | ✅ bounded experience adapter + mocked checks; real transport validation pending | Eni + teammate |
-| 2 | Prompt wording — foreclose the sun in SETTING, tune against locked seed | ⏳ blocked on seed | Eni |
+| — | Seed hunt (8 seeds × 90s, pick and record a seed) | ✅ 2026 selected; 1234 recorded as calm-validated alternate in PR #4 | Eni |
+| B | Operator recovery and bounded patient reattachment | ✅ operator live check reported in PR #4; patient adapter checked with mocks only | Eni + teammate |
+| 2 | Prompt wording against the selected seed | Operator rate phases available; patient guide/motion wording needs live acceptance | Eni |
 | **3** | **Breath detection** | **✅ offline implementation + tests; actual laptop mic check pending** | **teammate** |
 | **4** | **Entrainment ramp** | **✅ pure logic, preview and live adapter implemented; locked-seed run pending** | **teammate** |
 | — | Patient session screen, optional guide, Stop, fallback and duration limits | ✅ implemented and checked offline | teammate |
 | 5 | Clinician distress override | later, only if time | — |
 
-**Known unsolved:** one unexplained transport drop at 58s, cause unknown,
-one event in ~11 min. B auto-recovers any loss of `ready`, so B is our
-*mitigation*, not a fix. We ship recoverable. Don't tell anyone it's "handled."
+**Recovery evidence:** PR #4 reports an operator transport interruption at 43s,
+followed by recovery and a fresh 90-second arc. The underlying transport-drop
+cause remains unknown. The patient adapter uses a different bounded policy:
+reattach the same session and retain the original deadline, then fall back
+locally. That policy still needs its own live acceptance run.
 
 ### Teammate build: try it now
 
@@ -123,6 +126,9 @@ browser video playback. Start captures the current pace and turns the mic off.
 Stop, hiding the page, and the original deadline close a live run. Recovery
 reattaches the same session and never extends that deadline or creates a fresh
 session. Failed cleanup blocks another start and offers Retry Stop.
+
+The guide uses the starting BPM and elapsed time. It does **not** continuously
+react to new microphone measurements or detect actual inhale/exhale phases.
 
 The live token requests one session and a provider-side 120-second duration
 limit, alongside the application's 90-second arc and 30-second startup timeout.
@@ -144,12 +150,13 @@ physical synchronization is unverified.
 
 ### Remaining product work
 
-1. **Live acceptance:** Eni's locked seed and prompt wording; confirm first video,
+1. **Live acceptance:** use seed 2026 and validate the patient prompt wording; confirm first video,
    both motion choices, optional guide, sound, reattachment, early Stop, and
-   provider closure/duration enforcement in the shared slot. As of the branch
-   audit on 2026-09-12, `main`, `beacon-sync`, and `orbis-session-harness` contain
-   no locked-seed result; their harness seed `42` is a placeholder.
-2. **Real inputs and users:** check the actual laptop mic, then run observed
+   provider closure/duration enforcement in the shared slot. PR #4 on `main`
+   now contains the seed decision and an operator live recovery result.
+2. **Real inputs and users:** continuous breathing-to-prompt feedback is not
+   implemented. Check the actual laptop mic and the microphone-to-prompt path,
+   then run observed
    comfort/usability sessions. Do not infer efficacy from a moving guide or
    synthetic signal tests.
 3. **Deployment readiness:** this is a private demo. Before public hosting,

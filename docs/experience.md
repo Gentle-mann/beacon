@@ -18,6 +18,8 @@ during a run apply next time. The mic cannot be restarted during a run. Guide
 and motion preferences can change during the run; live prompt changes wait
 for the prescribed two-chunk cadence. Still is a prompt preference, not a
 guarantee that a generative model will produce motionless video.
+This is a timed guide based on the starting pace, not continuous feedback from
+actual breathing. Successful real microphone-to-model response remains untested.
 
 ## Enable a coordinated live run
 
@@ -26,13 +28,21 @@ Set these server environment variables and restart the development server:
 ```dotenv
 REACTOR_API_KEY=<your key>
 BEACON_LIVE_ENABLED=true
-BEACON_LOCKED_SEED=<Eni's confirmed unsigned 32-bit seed>
+BEACON_LOCKED_SEED=2026
 ```
 
-Do not substitute the harness placeholder `42` for an agreed seed. The remote
-branch audit on 2026-09-12 found `origin/main`, `origin/beacon-sync`, and
-`origin/orbis-session-harness`; none contained a recorded locked seed or tuning
-result. Canonical scene wording in `lib/scene.ts` is unchanged.
+The updated `main` (PR #4, commit `68c7be0`) selects seed 2026 in `lib/scene.ts`
+and records 1234 as the calm-validated alternate. `.env.example` matches 2026
+while keeping live mode disabled. The environment seed is explicit so a run
+cannot silently switch seeds when scene code changes.
+
+PR #4 reports live validation of the operator's recovery and rate-based arc.
+That operator remains at `/operator` with its upstream behavior: reap, create
+a new run, and restart the arc from zero. The patient controller instead
+reattaches the original session, retains its deadline, and falls back locally.
+The operator uses progressively slower scene clauses; the patient guide adds
+optional inhale/exhale clauses. Both use the canonical scene template, but the
+operator's live results do not validate the patient prompts or recovery policy.
 
 `GET /api/experience/config` reports availability without calling Reactor.
 Live Start alone calls `POST /api/experience/token`. The new JWT requests:
