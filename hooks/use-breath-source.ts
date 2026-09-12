@@ -72,6 +72,7 @@ export function useBreathSource() {
       if (id !== requestId.current) return;
       release.current = null;
       source.setMicBpm(null);
+      waveform.current = [];
       setReading(EMPTY);
       setMicStatus("error");
       setMessage(text);
@@ -93,6 +94,10 @@ export function useBreathSource() {
       await resumed;
       if (id !== requestId.current || closed) { cleanup(); return; }
       if (context.state !== "running") throw new Error("Audio context did not start");
+      if (!stream.getAudioTracks().some((track) => track.readyState === "live")) {
+        fail("Microphone disconnected before it started. The manual slider is active.");
+        return;
+      }
       input = context.createMediaStreamSource(stream);
       analyser = context.createAnalyser();
       analyser.fftSize = 2048;

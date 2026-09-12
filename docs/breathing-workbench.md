@@ -34,3 +34,41 @@ listening. Synthetic tests do not validate real breath-detection accuracy.
 
 Browser API references: [getUserMedia permission and secure-context behavior](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia),
 [AnalyserNode time-domain samples](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode/getFloatTimeDomainData).
+
+## Gate 4
+
+The adjacent panel consumes the same `BreathSource`. **Play 90s preview** captures
+its current BPM once and runs a fake chunk stream in real time. **Simulate full
+90s** produces the entire trace immediately. Both use `advanceEntrainment`,
+every second valid chunk, with the same canonical `buildPrompt` as the live app.
+The default stream emits 22 prompts, last at 86.24s, and none at/after 90s.
+**Export JSON** preserves the complete simulated prompt text and timestamps.
+
+`npm run simulate:entrainment -- 18 1960` produces the same trace in the terminal
+without opening a browser. Unit tests cover gradual rates, integrated phase,
+irregular and duplicate chunks, immutable scene clauses and the hard cutoff.
+`npm run test:browser` runs browser lifecycle and offline-flow checks in Chrome.
+
+Starts below 6 BPM hold their initial rate rather than increasing. The phase
+uses the integral of the changing rate; multiplying elapsed time by the current
+rate would move the phase backwards. The fixed ~3.92s send interval undersamples
+faster breath cycles; this demo does not establish physical synchronization.
+
+### Handoff to Eni (requires the live slot)
+
+1. Lock the seed and tune the provisional inhale/exhale wording. `lib/scene.ts`
+   is untouched; SETTING/CAMERA/CONTINUITY still come from that tuning file.
+2. Capture `source.getCurrentBpm()` once when the arc begins. Create state using
+   `createEntrainmentState(bpm, startTimestamp)`.
+3. On actual `chunk_complete`, pass `chunk_index` and event receipt time in that
+   same clock to `advanceEntrainment`. Log each returned prompt and pass its
+   `text` to the existing logged `sendPrompt` path.
+4. Disable the existing restate loop while Gate 4 owns prompting, so the two
+   loops cannot send competing prompts. Do not wire to mirrored `state` events.
+5. Stop generation/session at the 90s deadline even if no more chunks arrive;
+   the pure reducer prevents late prompts but does not kill a billed session.
+   Recovery must preserve the original deadline. Run the integration on the
+   locked seed with Eni driving the slot.
+
+No live integration, model sessions or claims of real microphone accuracy were
+part of the automated offline checks.

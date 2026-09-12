@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "test:browser": "playwright test",
+    "simulate:entrainment": "tsx scripts/simulate-entrainment.ts"
   },
   "dependencies": {
     "@google/genai": "^2.22.0",

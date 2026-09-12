@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { BreathLab } from "@/components/breath-lab";
 
+export const metadata = { title: "Beacon | Breathing workbench" };
+
 export default function BreathPage() {
   return (
     <main className="breath-page">

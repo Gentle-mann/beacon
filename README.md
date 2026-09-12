@@ -95,13 +95,28 @@ The docs were wrong on several of these. These are what we actually measured:
 | — | Seed hunt (8 seeds × 90s, pick calm/no-flare/least-banding, LOCK it) | 🔄 running | Eni |
 | B | Recovery: on any loss of `ready` → reattach via cached JWT, fallback reap+rewarm locked seed | ⏳ next | Eni |
 | 2 | Prompt wording — foreclose the sun in SETTING, tune against locked seed | ⏳ blocked on seed | Eni |
-| **3** | **Breath detection** | **🟢 START NOW — no session needed** | **teammate** |
-| **4** | **Entrainment ramp** | **🟢 START NOW as pure logic — no session needed** | **teammate** |
+| **3** | **Breath detection** | **✅ offline implementation + tests; actual laptop mic check pending** | **teammate** |
+| **4** | **Entrainment ramp** | **✅ pure logic + offline preview tested; live wire-in pending** | **teammate** |
 | 5 | Clinician distress override | later, only if time | — |
 
 **Known unsolved:** one unexplained transport drop at 58s, cause unknown,
 one event in ~11 min. B auto-recovers any loss of `ready`, so B is our
 *mitigation*, not a fix. We ship recoverable. Don't tell anyone it's "handled."
+
+### Teammate build: try it now
+
+Run `npm install && npm run dev`, then open **http://localhost:3000/breath**.
+The workbench runs independently of the session harness and needs no API keys
+or Orbis slot. Use the manual slider, try the optional microphone, then choose
+**Play 90s preview** or **Simulate full 90s**. Export the timestamped prompt log
+as JSON. All preview prompts are simulated; nothing is sent to the model.
+
+Checks: `npm test`, `npm run test:browser` (Chrome), `npm run typecheck`,
+`npm run build`. Terminal-only trace: `npm run simulate:entrainment -- 18 1960`.
+See [implementation details and Eni's integration checklist](docs/breathing-workbench.md).
+The mic is a sound-envelope heuristic and still needs the actual laptop breath
+test. The prescribed two-chunk cadence skips some phases at faster rates;
+physical synchronization is unverified.
 
 ---
 

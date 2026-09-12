@@ -41,11 +41,11 @@ export function BreathPanel({ breath }: { breath: BreathControls }) {
         if (i === 0) context.moveTo(x, y); else context.lineTo(x, y);
       });
       context.stroke();
-      frame = requestAnimationFrame(draw);
+      if (micStatus === "listening") frame = requestAnimationFrame(draw);
     };
     draw();
     return () => cancelAnimationFrame(frame);
-  }, [waveform]);
+  }, [waveform, micStatus]);
 
   const listening = micStatus === "listening";
   const statuses = {
