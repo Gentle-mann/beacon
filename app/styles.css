@@ -508,6 +508,58 @@ main {
   color: var(--dim);
 }
 
+/* Offline breathing workbench: no Reactor provider or session side effects. */
+.offline-link { margin: 2px 0 14px; font-size: 0.85rem; }
+a { color: #b8f0cb; }
+.breath-page { max-width: 1440px; margin: 0 auto; padding: 40px 28px; }
+.breath-page-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
+.breath-page-header h1 { margin: 10px 0; font-size: clamp(1.8rem, 3.5vw, 2.8rem); letter-spacing: -0.045em; font-weight: 550; }
+.breath-page-header p { margin: 0; color: var(--dim); line-height: 1.5; }
+.breath-page-header a { flex-shrink: 0; text-decoration: none; }
+.eyebrow { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.13em; color: var(--dim); }
+.breath-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.breath-card { padding: 26px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; min-width: 0; }
+.breath-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.source-badge { border: 1px solid #2f4a38; padding: 5px 8px; border-radius: 99px; color: #b8f0cb; font-size: 0.65rem; }
+.breath-card h2 { margin: 20px 0 12px; font-size: 1.35rem; letter-spacing: -0.02em; font-weight: 550; }
+.bpm-readout { display: flex; align-items: baseline; gap: 14px; margin: 18px 0 24px; }
+.bpm-readout output, .bpm-readout strong { font-size: 4.5rem; font-weight: 500; letter-spacing: -0.055em; font-variant-numeric: tabular-nums; }
+.bpm-readout span { color: var(--dim); font-size: 0.85rem; }
+.slider-label, .range-labels { display: flex; justify-content: space-between; gap: 12px; font-size: 0.78rem; }
+.slider-label strong { font-variant-numeric: tabular-nums; }
+#manual-bpm { width: 100%; accent-color: #6fd38a; margin: 16px 0 8px; cursor: pointer; }
+.range-labels { color: var(--dim); margin-bottom: 16px; font-size: 0.68rem; }
+.breath-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 12px; }
+.mic-status { font-size: 0.8rem; line-height: 1.5; min-height: 2.4em; color: #b0ada7; }
+.mic-status.alert { color: var(--alert); }
+.waveform-heading { display: flex; justify-content: space-between; gap: 12px; margin: 24px 0 10px; font-size: 0.67rem; color: var(--dim); flex-wrap: wrap; }
+.breath-waveform { display: block; width: 100%; height: 160px; border: 1px solid var(--line); border-radius: 8px; background: #0c0e0d; margin-bottom: 14px; }
+.breath-card .muted { line-height: 1.55; }
+.ramp-live { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.ramp-live .bpm-readout { margin: 14px 0; }
+.phase-cue { display: grid; place-items: center; flex-shrink: 0; width: 94px; height: 94px; border: 1px solid #456c52; border-radius: 50%; background: radial-gradient(circle, #1d3626 0%, #131b16 70%); color: #b8f0cb; font-size: 0.76rem; }
+.ramp-caption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 0.7rem; color: var(--dim); }
+.ramp-caption strong { font-family: var(--mono); color: var(--ink); font-weight: 400; }
+.ramp-chart { display: block; width: 100%; margin: 16px 0 0; }
+.prompt-log-heading { display: flex; align-items: center; gap: 8px; margin: 24px 0 12px; }
+.prompt-log-heading h3 { margin: 0; font-weight: 500; font-size: 0.8rem; }
+.prompt-log-heading button:disabled { opacity: 0.4; cursor: default; }
+.preview-log { display: grid; gap: 8px; max-height: 280px; padding: 0; margin: 0; overflow: auto; list-style: none; }
+.preview-log li { padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: #0e0f0f; }
+.preview-log li div { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-family: var(--mono); font-size: 0.6rem; color: #a4c5ad; }
+.preview-log p { font-size: 0.73rem; line-height: 1.5; margin: 8px 0 0; color: #c4c1bb; }
+.ramp-note { font-size: 0.69rem; color: var(--dim); margin: 18px 0 0; line-height: 1.55; }
+.breath-card button:focus-visible, #manual-bpm:focus-visible, a:focus-visible { outline: 2px solid #6fd38a; outline-offset: 4px; }
+@media (max-width: 900px) {
+  .breath-grid { grid-template-columns: minmax(0, 1fr); }
+  .breath-page { padding: 26px 16px; }
+  .breath-page-header { align-items: flex-start; flex-direction: column; }
+  .breath-card { padding: 22px; }
+}
+@media (max-width: 480px) {
+  .ramp-live .bpm-readout { flex-direction: column; align-items: flex-start; gap: 0; }
+  .bpm-readout output { font-size: 3.75rem; }
+}
 
 /* ---- breath panel ------------------------------------------------------- */
 

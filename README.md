@@ -1,14 +1,15 @@
 # Beacon
 
-A generated environment that runs for the length of a medical procedure —
-continuous, no cuts, no loop — that reads a person's breathing and slowly
-leads it down toward ~6 breaths/min. Built on Visko Orbis Stable (Reactor)
-for the Live Models Hackathon.
+A short, patient-controlled comfort experience: a quiet environment, optional
+breathing guide, and an always-reachable Stop button. Built on Visko Orbis
+Stable (Reactor) for the Live Models Hackathon.
 
-The demo is a person breathing with a living world on screen. Dialysis chair,
-infusion, MRI. Ambient video today is a loop that ignores the patient; a live
-model can be a stimulus that meets the patient's state and stays as long as
-the body needs it.
+The current experience is bounded to 90 seconds. It starts with a local lagoon
+preview and can connect to generated video using the team's selected seed,
+2026. The patient prompts still need live validation. Breathing guidance is off by default; the user can choose a
+starting pace or estimate one locally with a microphone. This prototype does
+not establish respiratory synchronization, clinical benefit, or suitability
+for an entire procedure.
 
 ---
 
@@ -45,12 +46,22 @@ a locked seed exists.
 ## Setup
 
 ```
-cp .env.example .env.local     # add REACTOR_API_KEY and GEMINI_API_KEY
+cp .env.example .env.local     # optional for the local preview
 npm install
 npm run dev                     # http://localhost:3000
 ```
 
-Keys stay server-side. Node 20.9+.
+Node 20.9+. API keys stay server-side; the browser receives only a scoped
+Reactor JWT for a live run. Leave `BEACON_LIVE_ENABLED=false` until the team
+coordinates patient-flow validation. Set `BEACON_LOCKED_SEED=2026` explicitly,
+matching the current selection in `lib/scene.ts`; `.env.example` includes it.
+See [session setup and verification](docs/experience.md).
+
+| Route | Purpose |
+|---|---|
+| `/` | Patient experience: preview, optional guide, motion/sound controls, bounded live adapter |
+| `/breath` | Offline mic/waveform and prompt-trace workbench |
+| `/operator` | Original session harness, seed hunting, diagnostic logs and account-level cleanup |
 
 ---
 
@@ -92,16 +103,69 @@ The docs were wrong on several of these. These are what we actually measured:
 |---|---|---|---|
 | 0 | Read repo + API | ✅ done | — |
 | 1 | Session harness (connect/warm/start/stay-up, status panel, kill+reap, credit meter) | ✅ done | Eni |
-| — | Seed hunt (8 seeds × 90s, pick calm/no-flare/least-banding, LOCK it) | 🔄 running | Eni |
-| B | Recovery: on any loss of `ready` → reattach via cached JWT, fallback reap+rewarm locked seed | ⏳ next | Eni |
-| 2 | Prompt wording — foreclose the sun in SETTING, tune against locked seed | ⏳ blocked on seed | Eni |
-| **3** | **Breath detection** | **🟢 START NOW — no session needed** | **teammate** |
-| **4** | **Entrainment ramp** | **🟢 START NOW as pure logic — no session needed** | **teammate** |
+| — | Seed hunt (8 seeds × 90s, pick and record a seed) | ✅ 2026 selected; 1234 recorded as calm-validated alternate in PR #4 | Eni |
+| B | Operator recovery and bounded patient reattachment | ✅ operator live check reported in PR #4; patient adapter checked with mocks only | Eni + teammate |
+| 2 | Prompt wording against the selected seed | Operator rate phases available; patient guide/motion wording needs live acceptance | Eni |
+| **3** | **Breath detection** | **✅ offline implementation + tests; actual laptop mic check pending** | **teammate** |
+| **4** | **Entrainment ramp** | **✅ pure logic, preview and live adapter implemented; locked-seed run pending** | **teammate** |
+| — | Patient session screen, optional guide, Stop, fallback and duration limits | ✅ implemented and checked offline | teammate |
 | 5 | Clinician distress override | later, only if time | — |
 
-**Known unsolved:** one unexplained transport drop at 58s, cause unknown,
-one event in ~11 min. B auto-recovers any loss of `ready`, so B is our
-*mitigation*, not a fix. We ship recoverable. Don't tell anyone it's "handled."
+**Recovery evidence:** PR #4 reports an operator transport interruption at 43s,
+followed by recovery and a fresh 90-second arc. The underlying transport-drop
+cause remains unknown. The patient adapter uses a different bounded policy:
+reattach the same session and retain the original deadline, then fall back
+locally. That policy still needs its own live acceptance run.
+
+### Teammate build: try it now
+
+Open **http://localhost:3000/** for the patient experience. **Start preview**
+runs the full 90-second flow without creating a model session. The local
+illustration is labelled honestly; a live label requires both model frames and
+browser video playback. Start captures the current pace and turns the mic off.
+Stop, hiding the page, and the original deadline close a live run. Recovery
+reattaches the same session and never extends that deadline or creates a fresh
+session. Failed cleanup blocks another start and offers Retry Stop.
+
+The guide uses the starting BPM and elapsed time. It does **not** continuously
+react to new microphone measurements or detect actual inhale/exhale phases.
+
+The live token requests one session and a provider-side 120-second duration
+limit, alongside the application's 90-second arc and 30-second startup timeout.
+These requests and lifecycle paths have mocked coverage; actual provider
+enforcement and generated output still need a coordinated live run.
+
+Run `npm install && npm run dev`, then open **http://localhost:3000/breath**.
+The workbench runs independently of the session harness and needs no API keys
+or Orbis slot. Use the manual slider, try the optional microphone, then choose
+**Play 90s preview** or **Simulate full 90s**. Export the timestamped prompt log
+as JSON. All preview prompts are simulated; nothing is sent to the model.
+
+Checks: `npm test`, `npm run test:browser` (Chrome), `npm run typecheck`,
+`npm run build`. Terminal-only trace: `npm run simulate:entrainment -- 18 1960`.
+See [implementation details and Eni's integration checklist](docs/breathing-workbench.md).
+The mic is a sound-envelope heuristic and still needs the actual laptop breath
+test. The prescribed two-chunk cadence skips some phases at faster rates;
+physical synchronization is unverified.
+
+### Remaining product work
+
+1. **Live acceptance:** use seed 2026 and validate the patient prompt wording; confirm first video,
+   both motion choices, optional guide, sound, reattachment, early Stop, and
+   provider closure/duration enforcement in the shared slot. PR #4 on `main`
+   now contains the seed decision and an operator live recovery result.
+2. **Real inputs and users:** continuous breathing-to-prompt feedback is not
+   implemented. Check the actual laptop mic and the microphone-to-prompt path,
+   then run observed
+   comfort/usability sessions. Do not infer efficacy from a moving guide or
+   synthetic signal tests.
+3. **Deployment readiness:** this is a private demo. Before public hosting,
+   protect or remove the original operator/token/session routes, add admission
+   and rate limits appropriate to a one-session quota, and verify operational
+   monitoring and cleanup. Same-origin checks are not authentication.
+4. **Product validation:** establish the intended setting, user needs, consent
+   and data practices, support process, and evidence required for any proposed
+   medical use. The current prototype makes comfort claims only.
 
 ---
 
@@ -180,12 +244,16 @@ chunk stream for real `chunk_complete` events and it's live.
 
 ---
 
-## Integration point (later, needs the slot — Eni drives)
+## Live acceptance point (needs the slot — Eni drives)
 
 When seed is locked + wording tuned:
 `BreathSource.getCurrentBpm()` → `targetRate()` → phase selector →
 `lib/scene.ts` template → `set_prompt` on every 2nd `chunk_complete`.
-One person on the slot for this. Announce it.
+This path is implemented in `lib/experience-controller.ts` and
+`lib/experience-transport.ts`; the existing operator restate loop is separate.
+One person on the slot for validation. Announce it. The experience deliberately
+falls back locally when reattachment fails instead of reaping other sessions or
+automatically creating a new one.
 
 ---
 
@@ -194,5 +262,6 @@ One person on the slot for this. Announce it.
 - Working and ugly beats elegant and broken.
 - Manual BPM slider must always work as a fallback to the same loop.
 - Every prompt sent gets logged with a timestamp.
-- No auth, no database, no design system, no landing page.
+- Demo scope: no accounts, database or landing page. This does not authorize
+  public exposure of unprotected billing and operator endpoints.
 - Kill sessions between tasks. Announce the slot.
