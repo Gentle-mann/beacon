@@ -16,17 +16,19 @@
 /**
  * THE SEED. Read once at start, so a fixed seed makes a run reproducible.
  *
- * Currently 2026 — building against it.
+ * Currently 1234 — the calm-validated seed from the 8-seed sweep, and the one
+ * picked by eye against 2026. It was the only seed that never blew a highlight
+ * (peak luma 183 vs 214-255 for every other seed), logged zero flare samples
+ * across 28, and its banding fell over the 90s arc (comb 11.47 -> 6.41) instead
+ * of climbing.
  *
- * ALTERNATE: 1234 is the calm-validated seed from the 8-seed sweep. It was the
- * only seed that never blew a highlight (peak luma 183 vs 214-255 for every
- * other seed), logged zero flare samples across 28, and its banding fell over
- * the 90s arc (comb 11.47 -> 6.41) instead of climbing. 2026 by contrast peaks
- * at 251 around t=46s with a bright sun column down the beach.
+ * ALTERNATE: 2026 is prettier and warmer but grows a literal sun on the horizon
+ * with a gold reflection column by ~32s — which lands exactly where the arc
+ * holds at 6 bpm.
  *
  * Swapping is this one line.
  */
-export const SEED = 2026;
+export const SEED = 1234;
 
 /** Sweep results, for when we come back to this. Peak luma / when / banding. */
 export const SEED_NOTES = {
@@ -53,30 +55,41 @@ export const ARC = {
 } as const;
 
 export const SETTING =
-  "a wide shallow tidal lagoon at dawn, pale sand below clear water, " +
-  "low mist on the far shoreline, soft overcast light";
+  "a dense stand of young willow and tall meadow grass filling the frame, " +
+  "flat grey overcast sky, no sun, no shadows, soft even light";
 
 export const CAMERA =
-  "a locked-off wide shot, camera perfectly still, horizon level and low";
+  "a locked-off medium-wide shot, camera perfectly still, the foliage filling " +
+  "most of the frame";
 
 /** Closing clause. Also byte-identical every send — it is what buys continuity. */
 export const CONTINUITY = "Continuous slow motion, no cuts, a single unbroken take.";
 
 /**
- * PHASES are the only thing that varies. Each is one clause describing the
- * water's motion. They are ordered from fastest/most agitated to slowest/most
- * still, so the entrainment loop at Gate 4 can index into them by breath rate.
+ * PHASES are the only thing that varies. Ordered MOST movement to LEAST.
  *
- * Keep every phrase the same grammatical shape. The model is steadier when the
- * only thing that changes between two prompts is the adjectives.
+ * THE RESPONSE DIRECTION MATTERS AND IT IS NOT THE OBVIOUS ONE.
+ *
+ * A fast, anxious breath must NOT be met with a fast, agitated world — that
+ * mirrors distress back at the person and makes it worse. It is met instead
+ * with soft, living movement: wind through leaves, present and visible so the
+ * scene reads as responding, but never busy and never sharp.
+ *
+ * As the breath slows, the wind drops and the foliage settles toward stillness.
+ * Anxiety is met with gentle motion; calm is rewarded with quiet. The scene is
+ * calm at BOTH ends of the range — only the amount of movement changes.
+ *
+ * Foliage rather than water on purpose: leaves are soft mass motion with no
+ * fine detail to survive, which is what 832x480 before upscaling can actually
+ * hold. Ripples and sharp edges muddy; a moving canopy does not.
  */
 export const PHASES = [
-  "The water moves in quick shallow ripples, many small crests crossing each other",
-  "The ripples lengthen and begin to travel in one direction",
-  "Long low swells roll through slowly, one after another",
-  "The swells arrive further apart, the surface smoothing between them",
-  "The surface is almost still, one slow swell passing through and fading",
-  "The water is glassy and barely moves, the mist settling onto it",
+  "A steady gentle wind moves through the leaves and grass, the whole mass shifting and turning softly",
+  "The wind eases, the foliage moving in slow broad waves that travel across the frame",
+  "The movement softens, only the outer leaves and grass heads still turning",
+  "The wind drops away, the foliage settling, a few leaves drifting slowly",
+  "Almost everything is still, one slow breath of air passing through the grass and fading",
+  "The foliage is completely still, the air motionless, nothing moving",
 ] as const;
 
 /**
@@ -123,4 +136,4 @@ export function phaseForRate(bpm: number, startBpm: number) {
  * spends 30 seconds testing that and then either uses it or drops it for good.
  */
 export const AUDIO_PROMPT =
-  "Slow shallow water lapping over sand, distant and soft, no music, no voices.";
+  "Soft wind moving through leaves and long grass, distant and gentle, no music, no voices.";
