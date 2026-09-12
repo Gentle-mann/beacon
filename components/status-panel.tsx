@@ -1,5 +1,6 @@
 "use client";
 
+import { ARC } from "@/lib/scene";
 import {
   CREDIT_BUDGET,
   USD_PER_CREDIT,
@@ -62,6 +63,65 @@ export function StatusPanel({ session }: { session: OrbisSession }) {
         </button>
       ) : null}
 
+      {/* BreathSource -> arc. The slider is the always-works path; the mic
+          feeds the same number later. */}
+      <div className="arc-box">
+        <label className="arc-row">
+          <span>breath</span>
+          <input
+            type="range"
+            min={4}
+            max={24}
+            step={0.5}
+            value={session.breathBpm}
+            disabled={session.arcRunning}
+            onChange={(e) => session.setBreathBpm(Number(e.target.value))}
+          />
+          <strong>{session.breathBpm.toFixed(1)} bpm</strong>
+        </label>
+        <button
+          type="button"
+          className={`btn btn-arc${session.arcRunning ? " btn-arc-on" : ""}`}
+          disabled={!session.runStarted}
+          onClick={session.arcRunning ? session.stopArc : session.startArc}
+        >
+          {session.arcRunning
+            ? `◉ ARC ${session.arcElapsed.toFixed(0)}s / ${ARC.durationS}s`
+            : `▶ run ${ARC.durationS}s arc → ${ARC.targetBpm} bpm`}
+        </button>
+        {session.arcRunning || session.targetBpm !== null ? (
+          <div className="arc-readout">
+            <span>
+              target <strong>{session.targetBpm?.toFixed(1) ?? "—"}</strong> bpm
+            </span>
+            <span>phase {session.phaseIndex ?? "—"}</span>
+            <span>
+              {session.arcElapsed < ARC.descentS ? "descending" : "holding"}
+            </span>
+          </div>
+        ) : null}
+        <div className="arc-bar">
+          <span
+            style={{
+              width: `${Math.min(100, (session.arcElapsed / ARC.durationS) * 100)}%`,
+            }}
+          />
+        </div>
+      </div>
+
+      <label className="seed-row">
+        <span>seed</span>
+        <input
+          className="seed-input"
+          type="number"
+          min={0}
+          value={session.seed}
+          disabled={session.runStarted || session.connected}
+          onChange={(event) => session.setSeed(Number(event.target.value) || 0)}
+        />
+        <em>read once at start</em>
+      </label>
+
       <button
         type="button"
         className={`btn btn-restate${session.restating ? " btn-restate-on" : ""}`}
@@ -89,10 +149,10 @@ export function StatusPanel({ session }: { session: OrbisSession }) {
           mono
         />
         <Stat
-          label="reconnects"
-          value={String(session.reconnectAttempt)}
+          label="recoveries"
+          value={String(session.recoveryAttempt)}
           mono
-          alert={session.reconnectAttempt > 0}
+          alert={session.recoveryAttempt > 0}
         />
         <Stat
           label="open sessions (acct)"
