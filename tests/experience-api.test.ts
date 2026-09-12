@@ -4,10 +4,11 @@ import { GET as getConfig } from "../app/api/experience/config/route";
 import { POST as mintToken } from "../app/api/experience/token/route";
 import { POST as stopSession } from "../app/api/experience/stop/route";
 import { getExperienceConfig } from "../lib/experience-api.server";
+import { fakeJwt } from "./fixtures";
 
 const ORIGIN = "http://127.0.0.1:3100";
 const FAKE_KEY = "test-server-key-never-return-this";
-const FAKE_JWT = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1bml0LXRlc3QifQ.unit_test_signature";
+const FAKE_JWT = fakeJwt("unit-test");
 const SESSION_ID = "00000000-0000-4000-8000-000000000001";
 const ENABLED = { REACTOR_API_KEY: FAKE_KEY, BEACON_LIVE_ENABLED: "true", BEACON_LOCKED_SEED: "17" };
 type Environment = Partial<typeof ENABLED>;

@@ -4,12 +4,15 @@ A short, patient-controlled comfort experience: a quiet environment, optional
 breathing guide, and an always-reachable Stop button. Built on Visko Orbis
 Stable (Reactor) for the Live Models Hackathon.
 
-The current experience is bounded to 90 seconds. It starts with a local lagoon
-preview and can connect to generated video using the team's selected seed,
-2026. The patient prompts still need live validation. Breathing guidance is off by default; the user can choose a
-starting pace or estimate one locally with a microphone. This prototype does
-not establish respiratory synchronization, clinical benefit, or suitability
-for an entire procedure.
+The current experience is bounded to 90 seconds and demonstrates two clear
+responses. Faster breathing selects an almost motionless mist lake; a baseline
+pace selects a willow scene with a soft breeze. The user can choose either demo
+signal, adjust the starting pace, or estimate it locally with a microphone.
+Beacon captures a stable recent rate, conditions a generated run on the chosen
+reference image, and guides the scene toward quieter movement. The patient
+prompts and reference-image runs still need live validation. This prototype
+does not establish respiratory synchronization, clinical benefit, or
+suitability for an entire procedure.
 
 ---
 
@@ -121,14 +124,23 @@ locally. That policy still needs its own live acceptance run.
 
 Open **http://localhost:3000/** for the patient experience. **Start preview**
 runs the full 90-second flow without creating a model session. The local
-illustration is labelled honestly; a live label requires both model frames and
-browser video playback. Start captures the current pace and turns the mic off.
+reference image is labelled honestly; a live label requires both model frames
+and browser video playback. Use the two patient-signal cards to switch between
+the 18 BPM protective-calm response and the 12 BPM willow-breeze response.
+Moving the manual pace across 15 BPM changes the recommended response. Start
+captures the median of recent microphone estimates or the manual value, then
+turns the mic off.
 Stop, hiding the page, and the original deadline close a live run. Recovery
 reattaches the same session and never extends that deadline or creates a fresh
 session. Failed cleanup blocks another start and offers Retry Stop.
 
 The guide uses the starting BPM and elapsed time. It does **not** continuously
 react to new microphone measurements or detect actual inhale/exhale phases.
+The elevated response removes almost all motion; the baseline response uses a
+gentle breeze that settles during the ramp. The optional guide adds
+scene-specific inhale/exhale wording. For a live reference scene,
+the client uploads the selected local image and waits for both `image_accepted`
+and `state.has_image` before sending seed, audio, prompt, and Start.
 
 The live token requests one session and a provider-side 120-second duration
 limit, alongside the application's 90-second arc and 30-second startup timeout.
@@ -150,8 +162,8 @@ physical synchronization is unverified.
 
 ### Remaining product work
 
-1. **Live acceptance:** use seed 2026 and validate the patient prompt wording; confirm first video,
-   both motion choices, optional guide, sound, reattachment, early Stop, and
+1. **Live acceptance:** use seed 2026 and validate both response images and prompt wording; confirm first video,
+   the elevated and baseline cases, optional guide, sound, reattachment, early Stop, and
    provider closure/duration enforcement in the shared slot. PR #4 on `main`
    now contains the seed decision and an operator live recovery result.
 2. **Real inputs and users:** continuous breathing-to-prompt feedback is not

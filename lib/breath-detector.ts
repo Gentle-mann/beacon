@@ -3,6 +3,7 @@ export type BreathReading = {
   bpm: number | null;
   quality: "calibrating" | "quiet" | "listening" | "tracking";
   airflow: "rising" | "settling";
+  speechSuspect: boolean;
 };
 
 /** RMS of the centred signal: a DC offset is not airflow energy. */
@@ -33,7 +34,7 @@ export class BreathDetector {
   private beganAt = 0;
   private highAt: number | null = null;
   private audibleMs = 0;
-  private reading: BreathReading = { envelope: 0, bpm: null, quality: "calibrating", airflow: "settling" };
+  private reading: BreathReading = { envelope: 0, bpm: null, quality: "calibrating", airflow: "settling", speechSuspect: false };
 
   update(amplitude: number, at: number): BreathReading {
     if (!Number.isFinite(at) || !Number.isFinite(amplitude) || amplitude < 0 || (this.lastAt !== null && at <= this.lastAt)) return this.reading;
@@ -42,7 +43,7 @@ export class BreathDetector {
       this.breaths = [];
       this.highAt = null;
       this.beganAt = at;
-      this.reading = { envelope: 0, bpm: null, quality: "calibrating", airflow: "settling" };
+      this.reading = { envelope: 0, bpm: null, quality: "calibrating", airflow: "settling", speechSuspect: false };
     }
     const dt = this.lastAt === null ? 50 : at - this.lastAt;
     this.lastAt = at;
@@ -65,7 +66,7 @@ export class BreathDetector {
       else if (this.highAt !== null && envelope < floor + span * 0.3) {
         const lastBreath = this.breaths.at(-1);
         const duration = at - this.highAt;
-        if (duration >= 400 && this.audibleMs >= 350 && duration <= 12_000 && (lastBreath === undefined || this.highAt - lastBreath >= MIN_INTERVAL_MS - 100)) {
+        if (duration >= 400 && this.audibleMs >= 350 && duration <= 7_000 && (lastBreath === undefined || this.highAt - lastBreath >= MIN_INTERVAL_MS - 100)) {
           this.breaths.push(this.highAt);
         }
         this.highAt = null;
@@ -84,11 +85,14 @@ export class BreathDetector {
       }
     }
     const quiet = !hasSignal || envelope < 0.001 && at - (this.breaths.at(-1) ?? this.beganAt) > 7_500;
+    // Seven seconds preserves a plausible audible inhale at the supported 4 BPM floor.
+    const speechSuspect = this.highAt !== null && at - this.highAt > 7_000;
     this.reading = {
       envelope,
       bpm,
       quality: !calibrated ? "calibrating" : bpm !== null ? "tracking" : quiet ? "quiet" : "listening",
       airflow: this.highAt === null ? "settling" : "rising",
+      speechSuspect,
     };
     return this.reading;
   }

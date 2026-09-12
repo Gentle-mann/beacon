@@ -12,8 +12,24 @@ controller as live mode. It does not mint a token, load the Reactor SDK, create
 a provider session, or produce generated video/audio. The optional microphone
 processes audio locally and uploads nothing.
 
-The guide is off by default. Starting captures the manual or estimated BPM
-once, stops the microphone, and locks that pace for this run. Manual changes
+The patient surface focuses on two 16:9 reference images. An elevated breathing
+signal (18 BPM in the stage preset) selects an almost motionless mist lake. A
+baseline signal (12 BPM) selects a willow beside water with a soft breeze. The
+selected card changes the honest local preview, and moving the manual pace
+across 15 BPM changes the recommended response. In live mode, the selected
+image is fetched from the app, uploaded through the scoped Reactor client,
+passed to `set_image`, and confirmed by `image_accepted` plus `state.has_image`
+before scene setup continues. An explicit
+`generation_started.image_conditioned: false` falls back to the local view.
+
+| Patient signal | Beacon response |
+|---|---|
+| Faster breathing | Protective calm: mist lake with almost no movement |
+| Baseline breathing | Gentle presence: soft breeze through willow leaves |
+
+The guide is off by default. Starting captures the manual value or the median
+of recent microphone estimates, stops the microphone, and locks that pace for
+this run. Manual changes
 during a run apply next time. The mic cannot be restarted during a run. Guide
 and motion preferences can change during the run; live prompt changes wait
 for the prescribed two-chunk cadence. Still is a prompt preference, not a
@@ -64,14 +80,18 @@ connection may end the generated scene before the application arc finishes.
 
 1. Create one token/client and connect. Subscribe to events before connecting so
    early session IDs and synchronous replies are not lost.
-2. Wait for transport `ready`; send the locked seed, canonical audio prompt and
-   opening scene; wait for `conditions_ready` before dispatching `start`.
+2. Wait for transport `ready`; for a reference scene, upload and apply its image
+   and wait for `state.has_image`. Then send the locked seed, scene-specific
+   audio prompt and opening scene; wait for `conditions_ready` before
+   dispatching `start`.
 3. Start the 90-second deadline immediately before dispatch. Only model
    `generation_started`, resumed generation, or `state.started` confirms
    running. The live badge additionally requires emitted frames and browser
    playback. A command promise resolving is not proof of success.
-4. Send through `buildPrompt` every second valid, forward `chunk_complete`.
-   Ignore mirrored `state.current_chunk`. Preserve SETTING/CAMERA/CONTINUITY.
+4. Build the selected response prompt every second valid, forward
+   `chunk_complete`. Ignore mirrored `state.current_chunk`. Preserve that
+   response's SETTING/CAMERA/CONTINUITY while target BPM selects its active,
+   steady, or settled motion clause and the optional guide adds its phase.
    Serialize prompts and retain only the latest pending one. In-memory prompt
    entries distinguish preview/live and record timestamp and acknowledgement;
    the separate workbench exports its simulated trace.
@@ -109,8 +129,8 @@ mobile Stop placement, keyboard controls and reduced motion. Desktop/mobile
 rendering is inspected separately. These checks do not open a real model
 session or the user's microphone.
 
-Eni's live acceptance run must verify the locked seed and wording, first real
-video/audio, the two motion preferences, optional guide updates, a transport
+Eni's live acceptance run must verify the locked seed and wording for both
+patient signals, first real video/audio, the motion preferences, optional guide updates, a transport
 interruption, Stop during warmup and running, page exit, provider closure and
 the native duration cap. Confirm the shared slot is free after each attempt.
 Then test the actual laptop mic and observe real users; synthetic signals and

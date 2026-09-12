@@ -6,6 +6,7 @@ import { useBreathSource } from "@/hooks/use-breath-source";
 import { createExperienceController, type ExperienceController, type ExperienceMode } from "@/lib/experience-controller";
 import { createExperienceTransport } from "@/lib/experience-transport";
 import type { ExperienceConfig } from "@/lib/experience-config";
+import { PATIENT_SIGNALS, patientSignalForBpm, type PatientSignalId } from "@/lib/sceneries";
 
 const DEFAULT_CONFIG: ExperienceConfig = { liveEnabled: false, lockedSeed: null, arcDurationMs: 90_000, maxSessionDurationSeconds: 120, unavailableReason: "Checking live scene availability…" };
 
@@ -74,11 +75,24 @@ export function BeaconExperience() {
 
   function start(mode: ExperienceMode) {
     if (mode === "live" && !config.liveEnabled) return;
-    const startBpm = breath.source.getCurrentBpm();
+    const startBpm = breath.source.getStableBpm();
+    const response = patientSignalForBpm(startBpm);
+    runtime.controller.setScene(response.sceneId);
     // The source is captured once; close the mic before live scenery/audio starts.
     breath.stopMic();
     setMediaPlaying(false);
-    void runtime.controller.start({ mode, seed: mode === "live" ? config.lockedSeed : null, startBpm });
+    void runtime.controller.start({ mode, seed: mode === "live" ? config.lockedSeed : null, startBpm, sceneId: response.sceneId });
+  }
+  function setPatientSignal(signalId: PatientSignalId) {
+    const signal = PATIENT_SIGNALS.find((option) => option.id === signalId) ?? PATIENT_SIGNALS[1];
+    breath.setManualBpm(signal.bpm);
+    runtime.controller.setScene(signal.sceneId);
+    runtime.controller.setMotion(signal.motion);
+  }
+  function setManualBpm(bpm: number) {
+    breath.setManualBpm(bpm);
+    const response = patientSignalForBpm(bpm);
+    runtime.controller.setScene(response.sceneId);
   }
   return <ExperienceScreen
     state={state.mode === "live" ? { ...state, framesSeen: state.framesSeen && mediaPlaying } : state}
@@ -92,7 +106,8 @@ export function BeaconExperience() {
     onStop={() => { breath.stopMic(); void runtime.controller.stop(); }}
     onGuide={runtime.controller.setGuide}
     onMotion={runtime.controller.setMotion}
-    onManualBpm={breath.setManualBpm}
+    onPatientSignal={setPatientSignal}
+    onManualBpm={setManualBpm}
     onMicStart={() => {
       const current = runtime.controller.getSnapshot();
       if (!current.cleanupPending && ["idle", "completed", "stopped", "fallback"].includes(current.status)) void breath.startMic();
@@ -106,6 +121,6 @@ export function BeaconExperience() {
       if (current.mode === "live" && current.status === "running") runtime.controller.onTransportStatus("waiting");
     }} onError={() => {
       if (runtime.controller.getSnapshot().mode === "live") runtime.controller.onError("The video could not play. The calm preview is still available.");
-    }} aria-label="Live lagoon video" />}
+    }} aria-label={`Live ${state.sceneId} video`} />}
   />;
 }

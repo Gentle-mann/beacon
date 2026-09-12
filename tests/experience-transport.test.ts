@@ -3,12 +3,13 @@ import test from "node:test";
 import { createExperienceTransport } from "../lib/experience-transport";
 import type { ExperienceMode } from "../lib/experience-controller";
 import type { ExperienceToken } from "../lib/experience-config";
+import { fakeJwt } from "./fixtures";
 
 type TransportOptions = Parameters<typeof createExperienceTransport>[0];
 type Client = Awaited<ReturnType<NonNullable<TransportOptions["loadClient"]>>>;
 const SESSION_ID = "00000000-0000-4000-8000-000000000002";
 const TOKEN: ExperienceToken = {
-  jwt: "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ0cmFuc3BvcnQtdGVzdCJ9.unit_test_signature",
+  jwt: fakeJwt("transport-test"),
   lockedSeed: 17,
   arcDurationMs: 90_000,
   maxSessionDurationSeconds: 120,
@@ -28,11 +29,13 @@ class FakeReactor {
   readonly connectCalls: unknown[][] = [];
   readonly reconnectCalls: unknown[] = [];
   readonly commands: { name: string; data: Record<string, unknown> }[] = [];
+  readonly uploads: { file: Blob; options?: { name?: string } }[] = [];
   disconnectCalls = 0;
   connectImpl = async () => { this.emit("sessionIdChanged", SESSION_ID); this.emit("statusChanged", "ready"); };
   reconnectImpl = async () => { this.emit("statusChanged", "ready"); };
   disconnectImpl = async () => {};
   commandImpl = async () => ({ type: "test_reply" });
+  uploadImpl = async () => ({ id: "uploaded-reference", name: "reference.png", mime_type: "image/png", size: 4 });
 
   on(event: string, listener: (...args: unknown[]) => void) {
     let handlers = this.listeners.get(event);
@@ -47,6 +50,10 @@ class FakeReactor {
   async sendCommand(name: string, data: Record<string, unknown>) {
     this.commands.push({ name, data });
     return this.commandImpl();
+  }
+  async uploadFile(file: File | Blob, options?: { name?: string }) {
+    this.uploads.push({ file, options });
+    return this.uploadImpl();
   }
   asClient() { return this as unknown as Client; }
 }
@@ -64,6 +71,7 @@ function fixture(initialMode: ExperienceMode = "live") {
     seed: 17,
     token: async () => Response.json(TOKEN),
     stop: async () => Response.json({ stopped: true }),
+    asset: async () => new Response(new Blob(["image"], { type: "image/png" })),
     load: async () => client.asClient(),
   };
   const fetcher: typeof fetch = async (input, options) => {
@@ -71,6 +79,7 @@ function fixture(initialMode: ExperienceMode = "live") {
     calls.push({ url, options });
     if (url === "/api/experience/token") return behavior.token();
     if (url === "/api/experience/stop") return behavior.stop();
+    if (url.startsWith("/scenery-concepts/")) return behavior.asset();
     throw new Error(`Unexpected endpoint in transport test: ${url}`);
   };
   const transport = createExperienceTransport({
@@ -128,6 +137,34 @@ test("preview emits prompt/start events without tokens or SDK loading and Stop c
     assert.deepEqual(f.loadedTokens, []);
     assert.equal(f.client.connectCalls.length, 0);
   } finally { await f.transport.close(); }
+});
+
+test("live reference image is uploaded and accepted before startup commands", async () => {
+  const f = fixture();
+  f.client.commandImpl = async () => ({ type: "image_accepted", width: 1672, height: 941 });
+  try {
+    await f.transport.connect();
+    const reply = await f.transport.prepareImage({ url: "/scenery-concepts/silk-pavilion.png", name: "silk-pavilion.png" });
+    assert.deepEqual(reply, { type: "image_accepted", width: 1672, height: 941 });
+    assert.equal(f.client.uploads.length, 1);
+    assert.equal(f.client.uploads[0].options?.name, "silk-pavilion.png");
+    assert.equal(f.client.uploads[0].file.type, "image/png");
+    assert.deepEqual(f.client.commands, [{ name: "set_image", data: { image: { id: "uploaded-reference", name: "reference.png", mime_type: "image/png", size: 4 } } }]);
+  } finally { await f.transport.close(); }
+});
+
+test("Stop during a pending reference upload prevents set_image", async () => {
+  const f = fixture();
+  const upload = deferred<{ id: string; name: string; mime_type: string; size: number }>();
+  f.client.uploadImpl = () => upload.promise;
+  await f.transport.connect();
+  const preparing = f.transport.prepareImage({ url: "/scenery-concepts/sea-of-clouds.png", name: "sea-of-clouds.png" });
+  await flush();
+  const closing = f.transport.close();
+  upload.resolve({ id: "late-upload", name: "sea-of-clouds.png", mime_type: "image/png", size: 5 });
+  await preparing;
+  await closing;
+  assert.equal(f.client.commands.some((item) => item.name === "set_image"), false);
 });
 
 test("live connection checks the configured seed and reattaches the same client with one attempt and one token", async () => {

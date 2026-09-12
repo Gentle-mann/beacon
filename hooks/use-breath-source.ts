@@ -5,7 +5,7 @@ import { BreathDetector, rmsAmplitude, type BreathReading } from "@/lib/breath-d
 import { createBreathSource } from "@/lib/breath-source";
 
 type MicStatus = "off" | "requesting" | "listening" | "error";
-const EMPTY: BreathReading = { envelope: 0, bpm: null, quality: "calibrating", airflow: "settling" };
+const EMPTY: BreathReading = { envelope: 0, bpm: null, quality: "calibrating", airflow: "settling", speechSuspect: false };
 
 export function useBreathSource() {
   const [source] = useState(() => createBreathSource());
@@ -120,7 +120,7 @@ export function useBreathSource() {
             analyser!.getFloatTimeDomainData(samples);
             const next = detector.update(rmsAmplitude(samples), at);
             waveform.current = [...waveform.current.filter((point) => at - point.at <= 30_000), { at, value: next.envelope }];
-            source.setMicBpm(next.bpm);
+            source.setMicBpm(next.speechSuspect ? null : next.bpm);
             setReading(next);
           } catch {
             fail("Microphone analysis stopped. The manual slider is active.");
