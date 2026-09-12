@@ -10,7 +10,15 @@ import {
   stamp,
   unwrapOrbisMessage,
 } from "@/lib/orbis";
-import { AUDIO_PROMPT, OPENING_PROMPT } from "@/lib/scene";
+import {
+  ARC,
+  AUDIO_PROMPT,
+  OPENING_PROMPT,
+  SEED,
+  buildPrompt,
+  phaseForRate,
+  targetRateAt,
+} from "@/lib/scene";
 
 export type PromptLogEntry = {
   at: number;
@@ -42,6 +50,9 @@ function loadPromptLog(): PromptLogEntry[] {
     return [];
   }
 }
+
+const MAX_RECOVERY_ATTEMPTS = 6;
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export function useOrbisSession(resetJwt: () => void) {
   const { status, connect, disconnect, reconnect, sendCommand } = useReactor(
@@ -83,14 +94,37 @@ export function useOrbisSession(resetJwt: () => void) {
   const [now, setNow] = useState(() => Date.now());
 
   // ---- reconnect bookkeeping ----------------------------------------------
-  const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
   const [openSessions, setOpenSessions] = useState<number | null>(null);
   const [restating, setRestating] = useState(false);
+  /** Read once at start, so a hunted seed makes a run reproducible. */
+  const [seed, setSeed] = useState<number>(SEED);
+  const seedRef = useRef<number>(SEED);
+
+  // ---- entrainment arc -----------------------------------------------------
+  /** BreathSource: the manual slider today, the mic later. Same input either way. */
+  const [breathBpm, setBreathBpm] = useState(14);
+  const breathBpmRef = useRef(14);
+  const [arcRunning, setArcRunning] = useState(false);
+  const [arcElapsed, setArcElapsed] = useState(0);
+  const [targetBpm, setTargetBpm] = useState<number | null>(null);
+  const [phaseIndex, setPhaseIndex] = useState<number | null>(null);
+  const arcStartedAt = useRef<number | null>(null);
+  const arcStartBpm = useRef(14);
+  const arcRunningRef = useRef(false);
+  const lastSendChunk = useRef<number | null>(null);
   const intentionalDisconnect = useRef(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousStatus = useRef(status);
+  /** Read inside the recovery loop, which must see live status, not a closure. */
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   const everReady = useRef(false);
+  /** The one and only recovery driver. See `recover` below. */
+  const recoverRef = useRef<(() => Promise<void>) | null>(null);
+  const recovering = useRef(false);
+  const resumeArc = useRef(false);
   /** Set when the operator pressed the combined Warm+Start action. */
   const autoStart = useRef(false);
   /** Lets the status effect reach startRun, which is defined further down. */
@@ -184,6 +218,43 @@ export function useOrbisSession(resetJwt: () => void) {
           setFirstFrameAt((current) => current ?? Date.now());
         }
       }
+      // ---- the entrainment loop ------------------------------------------
+      // The ramp is a function of elapsed seconds, but a SEND only ever happens
+      // on a chunk boundary: prompts land at the next boundary anyway, and the
+      // observed cadence (~1.96s) drifts from the documented 1.833s, so a timer
+      // would slowly fall out of phase with the thing it is trying to hit.
+      if (arcRunningRef.current && index !== null && arcStartedAt.current) {
+        const elapsed = (Date.now() - arcStartedAt.current) / 1000;
+        setArcElapsed(elapsed);
+
+        if (elapsed >= ARC.durationS) {
+          arcRunningRef.current = false;
+          setArcRunning(false);
+          setPhase("arc complete");
+          pushEvent(`arc complete at ${elapsed.toFixed(1)}s`);
+        } else {
+          const since =
+            lastSendChunk.current === null
+              ? Infinity
+              : index - lastSendChunk.current;
+          if (since >= ARC.chunksPerSend) {
+            lastSendChunk.current = index;
+            const rate = targetRateAt(elapsed, arcStartBpm.current);
+            const { index: pi, phase: clause } = phaseForRate(
+              rate,
+              arcStartBpm.current,
+            );
+            setTargetBpm(rate);
+            setPhaseIndex(pi);
+            void sendPromptRef.current?.(
+              buildPrompt(clause),
+              `arc ${elapsed.toFixed(0)}s ${rate.toFixed(1)}bpm p${pi}`,
+            );
+          }
+        }
+        return;
+      }
+
       // Restate on the chunk boundary, not on a timer.
       if (restateRef.current && index !== null && currentPromptRef.current) {
         const since =
@@ -245,6 +316,11 @@ export function useOrbisSession(resetJwt: () => void) {
       setPaused(false);
       setGeneratingAt((current) => current ?? Date.now());
       setPhase("generating");
+      if (resumeArc.current) {
+        resumeArc.current = false;
+        pushEvent("resuming arc from t=0 after recovery");
+        beginArcRef.current();
+      }
     }
     if (message.type === "generation_paused") setPaused(true);
     if (message.type === "generation_resumed") setPaused(false);
@@ -291,7 +367,7 @@ export function useOrbisSession(resetJwt: () => void) {
         void startRunRef.current?.();
       }
       setConnectedAt((current) => current ?? Date.now());
-      setReconnectAttempt(0);
+      setRecoveryAttempt(0);
       setViewMounted(true);
       setPhase((current) =>
         current === "connecting" || current === "reconnecting"
@@ -309,46 +385,117 @@ export function useOrbisSession(resetJwt: () => void) {
         setPhase("killed");
         return;
       }
-      // Unexpected drop: climb back. Network blips are the whole point.
-      pushError(`transport: status -> disconnected (unplanned), reconnecting`);
-      setPhase("reconnecting");
-      setReconnectAttempt((attempt) => attempt + 1);
+      // Unexpected drop: hand it to the single recovery owner.
+      pushError(`transport: status -> disconnected (unplanned), recovering`);
+      void recoverRef.current?.();
     }
   }, [pushError, status]);
 
-  useEffect(() => {
-    if (reconnectAttempt === 0) return;
-    if (status === "ready" || status === "connecting") return;
-    if (intentionalDisconnect.current) return;
+  /** Starting the arc, callable from the UI and from recovery alike. */
+  const beginArc = useCallback(() => {
+    arcStartBpm.current = breathBpmRef.current;
+    arcStartedAt.current = Date.now();
+    lastSendChunk.current = null;
+    arcRunningRef.current = true;
+    setArcRunning(true);
+    setArcElapsed(0);
+    setTargetBpm(breathBpmRef.current);
+    setPhase("arc running");
+    pushEvent(
+      `arc start ${breathBpmRef.current} bpm -> ${ARC.targetBpm} bpm over ${ARC.descentS}s`,
+    );
+  }, [pushEvent]);
+  const beginArcRef = useRef(beginArc);
+  beginArcRef.current = beginArc;
 
-    const delay = Math.min(15_000, 1000 * 2 ** (reconnectAttempt - 1));
-    reconnectTimer.current = setTimeout(async () => {
-      try {
-        setPhase(`reconnecting (attempt ${reconnectAttempt})`);
-        // reconnect() only works while the SDK still holds the session. Once
-        // the server has torn it down it throws "without a session", and the
-        // only way back is a fresh connect() — which mints a new session on the
-        // same token (max_sessions 3 gives us the headroom for exactly this).
-        if (everReady.current) await reconnect();
-        else await connect();
-      } catch (caught) {
-        const detail =
-          caught instanceof Error ? caught.message : String(caught);
-        pushError(`reconnect attempt ${reconnectAttempt} failed: ${detail}`);
-        // The session is gone for good; stop trying to resume it and let the
-        // next attempt build a new one instead of looping on the same error.
-        if (/without a session/i.test(detail)) {
-          everReady.current = false;
-          pushEvent("session gone — next attempt will connect fresh");
+  /**
+   * B. THE SINGLE RECOVERY OWNER.
+   *
+   * One driver, guarded by `recovering`, so nothing races the SDK's own retry
+   * (that race produced "Already connected or connecting" during the sweep).
+   *
+   * Recovery is always a fresh run from t=0, never a resume: the model allows
+   * exactly ONE concurrent session (`concurrent_sessions_per_model = 1`), so a
+   * stale session and a new one are mutually exclusive by definition. That
+   * means REAP FIRST, then connect — the earlier loop created a new session per
+   * attempt, each one failing against the slot its predecessor still held.
+   *
+   * At a ~17s warm-up and a 90s arc, restarting is a stumble, not a death.
+   */
+  const recover = useCallback(async () => {
+    if (recovering.current || intentionalDisconnect.current) return;
+    recovering.current = true;
+    everReady.current = false;
+
+    // A dropped arc resumes from t=0 on the locked seed rather than picking up
+    // mid-descent: the run is only 90s, the seed makes it reproducible, and a
+    // partial descent leads the breather from the wrong place.
+    resumeArc.current = arcRunningRef.current;
+    arcRunningRef.current = false;
+    setArcRunning(false);
+    autoStart.current = true;
+
+    try {
+      for (let attempt = 1; attempt <= MAX_RECOVERY_ATTEMPTS; attempt++) {
+        if (intentionalDisconnect.current) break;
+        setRecoveryAttempt(attempt);
+        setPhase(`recovering (${attempt}/${MAX_RECOVERY_ATTEMPTS})`);
+
+        // Never fight the SDK: if it has already climbed back, we are done.
+        if (statusRef.current === "ready") {
+          setPhase("recovered");
+          break;
         }
-        setReconnectAttempt((attempt) => attempt + 1);
-      }
-    }, delay);
+        if (statusRef.current === "connecting" || statusRef.current === "waiting") {
+          await sleep(2000);
+          continue;
+        }
 
-    return () => {
-      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-    };
-  }, [connect, pushError, pushEvent, reconnect, reconnectAttempt, status]);
+        try {
+          // Free the slot before asking for one. In a 1-session world this is
+          // not optional.
+          const reaped = await fetch("/api/sessions", { method: "DELETE" })
+            .then((r) => r.json() as Promise<{ deleted?: string[] }>)
+            .catch(() => ({ deleted: [] as string[] }));
+          if (reaped.deleted?.length) {
+            pushEvent(`recovery reaped ${reaped.deleted.length} session(s)`);
+          }
+
+          resetJwt(); // the old token owns a session that no longer exists
+          await connect();
+          setPhase("recovered");
+          break;
+        } catch (caught) {
+          const detail =
+            caught instanceof Error ? caught.message : String(caught);
+          pushError(`recovery ${attempt}: ${detail}`);
+
+          // 429 covers both our own quota and Reactor having no free capacity.
+          // Capacity is not ours to fix, so back off rather than hammer it.
+          const capacity = /no available capacity|no available servers/i.test(detail);
+          const quota = /quota_exceeded|429/i.test(detail);
+          const backoff = capacity
+            ? Math.min(20000, 5000 * attempt)
+            : quota
+              ? Math.min(12000, 3000 * attempt)
+              : Math.min(10000, 1500 * 2 ** (attempt - 1));
+          if (capacity) setPhase(`waiting for Reactor capacity (${attempt})`);
+          await sleep(backoff);
+        }
+      }
+
+      if (statusRef.current !== "ready" && !intentionalDisconnect.current) {
+        setPhase("recovery gave up — press WARM + START");
+        pushError(
+          `recovery exhausted after ${MAX_RECOVERY_ATTEMPTS} attempts; not retrying (a hard quota is not something a retry loop can fix)`,
+        );
+      }
+    } finally {
+      recovering.current = false;
+    }
+  }, [connect, pushError, pushEvent, resetJwt]);
+
+  recoverRef.current = recover;
 
   // ---- command helpers -----------------------------------------------------
   const runAction = async (label: string, action: () => Promise<unknown>) => {
@@ -422,6 +569,9 @@ export function useOrbisSession(resetJwt: () => void) {
   );
 
   // ---- lifecycle -----------------------------------------------------------
+  seedRef.current = seed;
+  breathBpmRef.current = breathBpm;
+
   const warm = (thenStart = false) =>
     runAction("connect", async () => {
       autoStart.current = thenStart;
@@ -440,7 +590,7 @@ export function useOrbisSession(resetJwt: () => void) {
     runAction("start", async () => {
       setPhase("arming");
       // Read once at start; must be set before start to make a run reproducible.
-      await sendCommand("set_seed", { seed: 42 });
+      await sendCommand("set_seed", { seed: seedRef.current });
       await sendCommand("set_audio_prompt", { prompt: AUDIO_PROMPT });
 
       // Deliberately no set_resolution. The 2k default is what we want, and
@@ -465,8 +615,7 @@ export function useOrbisSession(resetJwt: () => void) {
   /** Prominent, deliberate, and the only path that suppresses auto-reconnect. */
   const killSession = async () => {
     intentionalDisconnect.current = true;
-    if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-    setReconnectAttempt(0);
+
     setRunStarted(false);
     setPaused(false);
     setPhase("killing");
@@ -521,7 +670,7 @@ export function useOrbisSession(resetJwt: () => void) {
     status,
     connected,
     phase,
-    reconnectAttempt,
+    recoveryAttempt,
     viewMounted,
     openSessions,
     // model state
@@ -545,6 +694,21 @@ export function useOrbisSession(resetJwt: () => void) {
     generatingSeconds,
     creditsBurned,
     // actions
+    seed,
+    setSeed,
+    // entrainment
+    breathBpm,
+    setBreathBpm,
+    arcRunning,
+    arcElapsed,
+    targetBpm,
+    phaseIndex,
+    startArc: beginArc,
+    stopArc: () => {
+      arcRunningRef.current = false;
+      setArcRunning(false);
+      setPhase("arc stopped");
+    },
     restating,
     toggleRestate: () => {
       restateRef.current = !restateRef.current;
