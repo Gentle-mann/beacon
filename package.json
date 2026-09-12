@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "test:browser": "playwright test",
+    "simulate:entrainment": "tsx scripts/simulate-entrainment.ts"
   },
   "dependencies": {
     "@google/genai": "^2.22.0",
@@ -18,9 +21,11 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^20.19.25",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "tsx": "^4.23.13",
     "typescript": "^5.9.3"
   }
 }
