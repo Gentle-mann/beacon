@@ -5,7 +5,7 @@ import { useBreathSource } from "@/hooks/use-breath-source";
 
 export type BreathControls = ReturnType<typeof useBreathSource>;
 
-export function BreathPanel({ breath }: { breath: BreathControls }) {
+export function WorkbenchBreathPanel({ breath }: { breath: BreathControls }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const { snapshot, micStatus, reading, waveform } = breath;
   useEffect(() => {
