@@ -19,19 +19,30 @@ export function StatusPanel({ session }: { session: OrbisSession }) {
   return (
     <aside className="panel">
       <div className="panel-row panel-lifecycle">
+        {/* One button that does the whole thing. The two-step flow left a black
+            screen with a greyed-out Start and no way to tell it apart from a
+            failure. Warm-only is still here for pre-warming ahead of a demo. */}
+        <button
+          type="button"
+          className="btn btn-go"
+          disabled={session.runStarted || session.busy}
+          onClick={() => void session.warmAndStart()}
+        >
+          ▶ WARM + START
+        </button>
         <button
           type="button"
           className="btn btn-warm"
           disabled={session.connected || session.busy}
-          onClick={session.warm}
+          onClick={() => void session.warm()}
         >
-          Warm now
+          Warm only
         </button>
         <button
           type="button"
           className="btn btn-start"
           disabled={!session.connected || session.runStarted || session.busy}
-          onClick={session.startRun}
+          onClick={() => void session.startRun()}
         >
           Start
         </button>
@@ -50,6 +61,17 @@ export function StatusPanel({ session }: { session: OrbisSession }) {
           reap {session.openSessions} orphaned session(s) — still billing
         </button>
       ) : null}
+
+      <button
+        type="button"
+        className={`btn btn-restate${session.restating ? " btn-restate-on" : ""}`}
+        disabled={!session.runStarted}
+        onClick={session.toggleRestate}
+      >
+        {session.restating
+          ? "◉ HOLDING — restating every 2 chunks"
+          : "○ hold scene (restate every 2 chunks)"}
+      </button>
 
       <dl className="stats">
         <Stat label="status" value={session.status} mono />
@@ -174,6 +196,22 @@ export function StatusPanel({ session }: { session: OrbisSession }) {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="block">
+        <h3>
+          transport{" "}
+          <span className="count">{session.transportLog.length}</span>
+        </h3>
+        <ul className="log log-events">
+          {session.transportLog.length === 0 ? (
+            <li className="muted">no transitions</li>
+          ) : (
+            session.transportLog.slice(0, 12).map((line, index) => (
+              <li key={`${line}-${index}`}>{line}</li>
+            ))
+          )}
+        </ul>
       </section>
 
       <section className="block">

@@ -64,13 +64,33 @@ main {
   height: 100%;
 }
 
-.player-placeholder {
+.player-overlay {
+  position: absolute;
+  inset: 0;
   display: grid;
-  place-items: center;
-  height: 100%;
+  place-content: center;
+  gap: 8px;
+  justify-items: center;
+  padding: 24px;
+  text-align: center;
+}
+
+/* Once video is playing behind it, the overlay must not hide the picture. */
+.player-overlay-on {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.player-overlay strong {
+  font-size: clamp(1.1rem, 2.4vw, 1.7rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.player-overlay span {
+  max-width: 34ch;
   color: var(--dim);
-  font-size: 0.9rem;
-  letter-spacing: 0.02em;
+  font-size: 0.85rem;
+  line-height: 1.45;
 }
 
 .status {
@@ -135,6 +155,22 @@ main {
   cursor: not-allowed;
 }
 
+/* The one you press. Full width, unmissable. */
+.btn-go {
+  grid-column: 1 / -1;
+  padding: 15px 12px;
+  border-color: #2f5a3c;
+  background: #1b3a26;
+  color: #b8f0cb;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+}
+
+.btn-go:not(:disabled):hover {
+  background: #245030;
+  color: #fff;
+}
+
 .btn-warm:not(:disabled) {
   border-color: #4a4636;
   background: #2a2618;
@@ -157,6 +193,17 @@ main {
 .btn-kill:not(:disabled):hover {
   background: #58201b;
   color: #fff;
+}
+
+.btn-restate {
+  width: 100%;
+  font-size: 0.8rem;
+}
+
+.btn-restate-on {
+  border-color: #4a4636;
+  background: #2a2618;
+  color: #f0dfa8;
 }
 
 /* ---- stats -------------------------------------------------------------- */
