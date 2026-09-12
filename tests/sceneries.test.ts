@@ -1,14 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SCENERIES, buildSceneryPrompt, getScenery } from "../lib/sceneries";
+import { PATIENT_SIGNALS, SCENERIES, buildSceneryPrompt, getScenery, patientSignalForBpm } from "../lib/sceneries";
 
-test("the catalog keeps the lagoon and maps every generated concept to a reference image", () => {
-  assert.equal(SCENERIES.length, 9);
-  assert.equal(getScenery("lagoon").image, null);
-  for (const scenery of SCENERIES.filter((item) => item.id !== "lagoon")) {
+test("the focused catalog maps both patient signals to reference images", () => {
+  assert.equal(SCENERIES.length, 2);
+  assert.equal(PATIENT_SIGNALS.length, 2);
+  for (const scenery of SCENERIES) {
     assert.match(scenery.image ?? "", /^\/scenery-concepts\/.+\.png$/);
     assert.ok(scenery.audioPrompt.length > 20);
   }
+  assert.equal(patientSignalForBpm(18).sceneId, "still-lake");
+  assert.equal(patientSignalForBpm(12).sceneId, "willow-breeze");
 });
 
 test("pace and phase alter motion while the selected setting and camera remain byte-identical", () => {
@@ -26,6 +28,6 @@ test("pace and phase alter motion while the selected setting and camera remain b
   }
 });
 
-test("unknown scenery IDs fail closed to the lagoon", () => {
-  assert.equal(getScenery("not-a-scene").id, "lagoon");
+test("unknown scenery IDs fall back to the baseline response", () => {
+  assert.equal(getScenery("not-a-scene").id, "willow-breeze");
 });

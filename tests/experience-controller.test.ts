@@ -47,20 +47,20 @@ function fixture() {
     now = end;
     await flush();
   }
-  const start = (sceneId: SceneryId = "lagoon") => controller.start({ mode: "live", seed: 123, startBpm: 18, sceneId });
+  const start = (sceneId: SceneryId = "still-lake") => controller.start({ mode: "live", seed: 123, startBpm: 18, sceneId });
   return { controller, transport, commands, start, advance, closes: () => closes, reconnects: () => reconnects, unconfirmed: () => { closeConfirmed = false; } };
 }
 async function flush() { for (let i = 0; i < 20; i++) await Promise.resolve(); }
 
 test("arms with supplied seed, catches synchronous conditions event, and needs model start truth", async () => {
   const f = fixture();
-  await f.start("silk-pavilion");
+  await f.start("willow-breeze");
   assert.equal(f.controller.getSnapshot().status, "running");
   assert.deepEqual(f.commands.map((item) => item.name), ["set_seed", "set_audio_prompt", "set_prompt", "start"]);
   assert.equal(f.commands[0].data.seed, 123);
   assert.equal(f.controller.getSnapshot().guideEnabled, false);
-  assert.equal(f.controller.getSnapshot().sceneId, "silk-pavilion");
-  assert.match(String(f.commands.find((item) => item.name === "set_prompt")?.data.prompt), /translucent silk pavilion/i);
+  assert.equal(f.controller.getSnapshot().sceneId, "willow-breeze");
+  assert.match(String(f.commands.find((item) => item.name === "set_prompt")?.data.prompt), /mature willow/i);
 });
 
 test("reference-image conditioning completes before live scene commands", async () => {
@@ -74,12 +74,12 @@ test("reference-image conditioning completes before live scene commands", async 
   };
   const original = f.transport.sendCommand;
   f.transport.sendCommand = async (name, data) => { sequence.push(name); return original(name, data); };
-  const starting = f.start("silk-pavilion");
+  const starting = f.start("willow-breeze");
   await flush();
-  assert.deepEqual(sequence, ["image:silk-pavilion.png"]);
+  assert.deepEqual(sequence, ["image:willow-breeze.png"]);
   imageReady.resolve();
   await starting;
-  assert.deepEqual(sequence, ["image:silk-pavilion.png", "set_seed", "set_audio_prompt", "set_prompt", "start"]);
+  assert.deepEqual(sequence, ["image:willow-breeze.png", "set_seed", "set_audio_prompt", "set_prompt", "start"]);
 });
 
 test("a state snapshot from before set_image cannot satisfy image conditioning", async () => {
@@ -89,7 +89,7 @@ test("a state snapshot from before set_image cannot satisfy image conditioning",
     f.controller.onTransportStatus("ready");
   };
   f.transport.prepareImage = async () => ({ type: "image_accepted" });
-  const starting = f.start("silk-pavilion");
+  const starting = f.start("willow-breeze");
   await flush();
   assert.equal(f.commands.length, 0);
   f.controller.onMessage({ type: "state", has_image: true });
@@ -108,7 +108,7 @@ test("an explicit unconditioned start falls back instead of claiming the selecte
     }
     return original(name, data);
   };
-  await f.start("sea-of-clouds");
+  await f.start("willow-breeze");
   await flush();
   assert.equal(f.controller.getSnapshot().status, "fallback");
   assert.match(f.controller.getSnapshot().error ?? "", /without the selected image/i);
@@ -136,7 +136,7 @@ test("only unique real chunk events drive prompts, and scene preferences preserv
   }
   const prompts = f.commands.filter((command) => command.name === "set_prompt");
   assert.equal(prompts.length, 3); // opening + accepted events 2 and 4
-  assert.ok(prompts.every((item) => String(item.data.prompt).startsWith("The same wide shallow tidal lagoon")));
+  assert.ok(prompts.every((item) => String(item.data.prompt).startsWith("The same wide mist-covered mountain lake")));
   assert.match(String(prompts.at(-1)!.data.prompt), /almost still/);
 });
 
@@ -310,8 +310,8 @@ test("an old pending prompt cannot release or drain a newer run's prompt queue",
   newReply.resolve(undefined);
   await flush();
   assert.equal(prompts().length, 5, "only the newer command completion may send the latest replacement");
-  assert.match(String(prompts().at(-1)!.data.prompt), /swells/);
-  assert.match(String(prompts().at(-1)!.data.prompt), /The water slowly/);
+  assert.match(String(prompts().at(-1)!.data.prompt), /ripple/);
+  assert.match(String(prompts().at(-1)!.data.prompt), /The mist/);
   assert.equal(f.controller.getSnapshot().status, "running");
   await f.controller.stop();
 });

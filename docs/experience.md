@@ -12,27 +12,24 @@ controller as live mode. It does not mint a token, load the Reactor SDK, create
 a provider session, or produce generated video/audio. The optional microphone
 processes audio locally and uploads nothing.
 
-The scenery chooser includes the original lagoon plus eight generated 16:9
-reference images. The selected card changes the honest local preview. In live
-mode, the selected image is fetched from the app, uploaded through the scoped
-Reactor client, passed to `set_image`, and confirmed by `image_accepted` plus
-`state.has_image` before scene setup continues. An explicit
+The patient surface focuses on two 16:9 reference images. An elevated breathing
+signal (18 BPM in the stage preset) selects an almost motionless mist lake. A
+baseline signal (12 BPM) selects a willow beside water with a soft breeze. The
+selected card changes the honest local preview, and moving the manual pace
+across 15 BPM changes the recommended response. In live mode, the selected
+image is fetched from the app, uploaded through the scoped Reactor client,
+passed to `set_image`, and confirmed by `image_accepted` plus `state.has_image`
+before scene setup continues. An explicit
 `generation_started.image_conditioned: false` falls back to the local view.
 
-| Scenery | Breathing-driven movement |
+| Patient signal | Beacon response |
 |---|---|
-| Quiet lagoon | Water swells widen and settle |
-| Silk pavilion | Curtain folds become longer, slower billows |
-| Sea of clouds | Cloud lifts spread into broad, quiet cycles |
-| Golden grassland | Short waves grow into wide coordinated bands |
-| Living desert | Fine sand ribbons soften into broad dune ripples |
-| Aurora horizon | Narrow light folds become wide, slow arcs |
-| Jellyfish sanctuary | Frequent pulses become slow expansion and release |
-| Cathedral of mist | Small currents become broad movement through the arches |
-| Floating ink world | Small blooms become broad, slowly dissolving clouds |
+| Faster breathing | Protective calm: mist lake with almost no movement |
+| Baseline breathing | Gentle presence: soft breeze through willow leaves |
 
-The guide is off by default. Starting captures the manual or estimated BPM
-once, stops the microphone, and locks that pace for this run. Manual changes
+The guide is off by default. Starting captures the manual value or the median
+of recent microphone estimates, stops the microphone, and locks that pace for
+this run. Manual changes
 during a run apply next time. The mic cannot be restarted during a run. Guide
 and motion preferences can change during the run; live prompt changes wait
 for the prescribed two-chunk cadence. Still is a prompt preference, not a
@@ -91,9 +88,9 @@ connection may end the generated scene before the application arc finishes.
    `generation_started`, resumed generation, or `state.started` confirms
    running. The live badge additionally requires emitted frames and browser
    playback. A command promise resolving is not proof of success.
-4. Build the selected scenery prompt every second valid, forward
+4. Build the selected response prompt every second valid, forward
    `chunk_complete`. Ignore mirrored `state.current_chunk`. Preserve that
-   scenery's SETTING/CAMERA/CONTINUITY while target BPM selects its active,
+   response's SETTING/CAMERA/CONTINUITY while target BPM selects its active,
    steady, or settled motion clause and the optional guide adds its phase.
    Serialize prompts and retain only the latest pending one. In-memory prompt
    entries distinguish preview/live and record timestamp and acknowledgement;
@@ -132,8 +129,8 @@ mobile Stop placement, keyboard controls and reduced motion. Desktop/mobile
 rendering is inspected separately. These checks do not open a real model
 session or the user's microphone.
 
-Eni's live acceptance run must verify the locked seed and wording, first real
-video/audio, the two motion preferences, optional guide updates, a transport
+Eni's live acceptance run must verify the locked seed and wording for both
+patient signals, first real video/audio, the motion preferences, optional guide updates, a transport
 interruption, Stop during warmup and running, page exit, provider closure and
 the native duration cap. Confirm the shared slot is free after each attempt.
 Then test the actual laptop mic and observe real users; synthetic signals and

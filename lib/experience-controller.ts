@@ -45,7 +45,7 @@ function signal() {
 
 /** A bounded session, shared by the actual Reactor adapter and offline fixture. */
 export function createExperienceController(transport: ExperienceTransport, clock: ExperienceClock = defaultClock) {
-  let snapshot: ExperienceSnapshot = { status: "idle", mode: "preview", elapsedMs: 0, startBpm: 12, sceneId: "lagoon", guideEnabled: false, motion: "gentle", framesSeen: false, error: null, cleanupPending: false, promptLog: [] };
+  let snapshot: ExperienceSnapshot = { status: "idle", mode: "preview", elapsedMs: 0, startBpm: 12, sceneId: "willow-breeze", guideEnabled: false, motion: "gentle", framesSeen: false, error: null, cleanupPending: false, promptLog: [] };
   const listeners = new Set<() => void>();
   const timers = new Set<unknown>();
   let epoch = 0;

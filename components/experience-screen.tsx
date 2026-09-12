@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { memo, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import type { ExperienceSnapshot } from "@/lib/experience-controller";
 import { ARC_DURATION_MS, integratedBreathCycles, promptAt } from "@/lib/entrainment";
-import { SCENERIES, getScenery, type SceneryId } from "@/lib/sceneries";
+import { PATIENT_SIGNALS, getScenery, patientSignalForBpm, type PatientSignalId } from "@/lib/sceneries";
 
 export type ExperienceScreenProps = {
   state: ExperienceSnapshot;
@@ -19,7 +19,7 @@ export type ExperienceScreenProps = {
   onStop(): void;
   onGuide(enabled: boolean): void;
   onMotion(motion: "gentle" | "still"): void;
-  onScene(sceneId: SceneryId): void;
+  onPatientSignal(signalId: PatientSignalId): void;
   onManualBpm(bpm: number): void;
   onMicStart(): void;
   onMicStop(): void;
@@ -35,34 +35,6 @@ function BeaconMark() {
 function SoundIcon({ muted }: { muted: boolean }) {
   return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />{muted ? <path d="m16 9 5 6m0-6-5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /> : <><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></>}</svg>;
 }
-
-/** Local artwork is never a stand-in labelled as a generated/live model stream. */
-const LagoonIllustration = memo(function LagoonIllustration() {
-  const id = useId().replaceAll(":", "");
-  return <div className="experience-lagoon" aria-hidden="true">
-    <svg className="experience-landscape" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" focusable="false">
-      <defs>
-        <linearGradient id={`${id}-sky`} x2="0" y2="1"><stop stopColor="#7d9994" /><stop offset=".52" stopColor="#c1cbbb" /><stop offset="1" stopColor="#e4dfc9" /></linearGradient>
-        <linearGradient id={`${id}-water`} x2="0" y2="1"><stop stopColor="#b3c4b5" /><stop offset=".35" stopColor="#8baaa1" /><stop offset="1" stopColor="#365e58" /></linearGradient>
-        <linearGradient id={`${id}-sand`} x1="0" y1="0" x2=".3" y2="1"><stop stopColor="#d6d2b9" /><stop offset="1" stopColor="#919985" /></linearGradient>
-        <radialGradient id={`${id}-mist`}><stop stopColor="#f3edd8" stopOpacity=".6" /><stop offset="1" stopColor="#e9e6cf" stopOpacity="0" /></radialGradient>
-        <linearGradient id={`${id}-shore`} x2="0" y2="1"><stop stopColor="#e6e0c4" stopOpacity=".5" /><stop offset="1" stopColor="#e6e0c4" stopOpacity="0" /></linearGradient>
-      </defs>
-      <path fill={`url(#${id}-sky)`} d="M0 0h1600v570H0z" />
-      <path d="M0 398c113-19 151-6 251-29s159 18 254 14 118-26 213-4 171-6 253-13 157 24 235 9 198-4 394 22v165H0Z" fill="#82998a" opacity=".35" />
-      <path d="M0 434c193-27 212-9 371-10s231 12 440-3 351-7 789 1v178H0Z" fill="#a4b3a0" opacity=".72" />
-      <path fill={`url(#${id}-water)`} d="M0 449h1600v551H0z" />
-      <ellipse cx="839" cy="428" rx="980" ry="145" fill={`url(#${id}-mist)`} />
-      <path d="M0 497c237-22 385-23 564-16s401 11 614-1 311-10 422-8" stroke="#e5e3cd" strokeWidth="2" opacity=".35" fill="none" />
-      <path d="M-80 782c152-147 325-142 435-115s275 16 379-10c-92 71-235 88-342 98S175 839 84 1040H-80Z" fill={`url(#${id}-sand)`} />
-      <path d="M-80 782c152-147 325-142 435-115s275 16 379-10c-92 71-235 88-342 98S175 839 84 1040" stroke={`url(#${id}-shore)`} strokeWidth="28" fill="none" />
-      <path d="M1679 668c-197-72-357-35-442-3s-235 99-340 111c127 10 258 8 378-6s256 10 404 88Z" fill="#a4b09a" opacity=".45" />
-      <path d="M105 521c106-5 146 3 227 0m238-3c156 3 237 0 349-2m201 13c82-2 128-1 201 1M232 578c69-5 168-5 234-2m359 9c124-8 194-7 319-3M464 819c109-12 211-16 330-11m179 75c158-8 225-3 322 9" stroke="#d6ded0" strokeWidth="1.5" strokeLinecap="round" opacity=".26" fill="none" />
-    </svg>
-    <div className="experience-waterlight experience-waterlight-one" />
-    <div className="experience-waterlight experience-waterlight-two" />
-  </div>;
-});
 
 function headingFor(state: ExperienceSnapshot, sceneryDescription: string) {
   if (state.status === "stopping") return { title: "A gentle close.", description: "Closing live session…" };
@@ -97,28 +69,17 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
   const swell = (1 - Math.cos(cycle * Math.PI * 2)) / 2;
   const guideStyle = { "--guide-scale": String(.82 + swell * .18) } as CSSProperties;
   const micActive = micStatus === "listening" || micStatus === "requesting";
+  const patientSignal = PATIENT_SIGNALS.find((signal) => signal.sceneId === scenery.id) ?? patientSignalForBpm(sourceBpm);
   const badge = liveVisible ? "Live scene" : state.status === "recovering" ? "Reconnecting · local view" : fallback ? "Calm fallback" : "Local preview";
   const origin = liveVisible
     ? `${scenery.label} · live generated environment`
     : fallback
       ? `${scenery.label} · local view while live video is unavailable`
-      : scenery.image
-        ? `${scenery.label} · local reference image`
-        : `${scenery.label} · local illustration`;
-  function moveScene(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
-    const next = event.key === "Home" ? 0 : event.key === "End" ? SCENERIES.length - 1 : direction ? (index + direction + SCENERIES.length) % SCENERIES.length : index;
-    if (!direction && event.key !== "Home" && event.key !== "End") return;
-    event.preventDefault();
-    props.onScene(SCENERIES[next].id);
-    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
-  }
+      : `${scenery.label} · local reference image`;
 
   return <main className={`experience-screen ${running ? "experience-is-running" : ""} ${busy || state.cleanupPending ? "experience-is-active" : ""}`} data-motion={state.motion} data-live-visible={liveVisible} data-reference-image={Boolean(scenery.image)}>
     <div className="experience-scene">
-      {scenery.image
-        ? <Image className="experience-scene-image" src={scenery.image} alt="" fill sizes="100vw" priority />
-        : <LagoonIllustration />}
+      <Image className="experience-scene-image" src={scenery.image} alt="" fill sizes="100vw" priority />
       {/* Keep the actual player mounted through preparation so it can deliver its first-frame event. */}
       <div className="experience-live-video" aria-hidden={!liveVisible} inert={!liveVisible} style={{ opacity: liveVisible ? 1 : 0 }}>{props.video}</div>
       <div className="experience-shade" />
@@ -143,24 +104,21 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
     <div className="experience-bottom">
       <div className="experience-scene-caption"><span>{origin}</span><span>Stay as you are. Stop whenever you want.</span></div>
       <section className="experience-controls" aria-label="Session controls">
-        <div className="experience-scenery-picker">
-          <div className="experience-scenery-heading"><span className="experience-overline">Choose your scenery</span><span>{busy ? `${scenery.label} is set for this moment` : scenery.description}</span></div>
-          <div className="experience-scenery-options" role="radiogroup" aria-label="Choose your scenery">
-            {SCENERIES.map((option, index) => <button
-              key={option.id}
+        <div className="experience-signal-picker">
+          <div className="experience-signal-heading"><span className="experience-overline">Demo patient signal</span><span>{busy ? `${patientSignal.response} is set for this moment` : "Choose a breathing pattern to see Beacon respond."}</span></div>
+          <div className="experience-signal-options" role="radiogroup" aria-label="Demo patient signal">
+            {PATIENT_SIGNALS.map((signal) => <button
+              key={signal.id}
               type="button"
               role="radio"
-              aria-checked={option.id === scenery.id}
-              tabIndex={option.id === scenery.id ? 0 : -1}
-              aria-label={`${option.label}: ${option.description}`}
+              aria-checked={signal.id === patientSignal.id}
               disabled={busy || state.cleanupPending}
-              onClick={() => props.onScene(option.id)}
-              onKeyDown={(event) => moveScene(event, index)}
+              onClick={() => props.onPatientSignal(signal.id)}
+              aria-label={`${signal.label}, ${signal.bpm} breaths per minute: ${signal.response}`}
             >
-              <span className={`experience-scenery-thumb ${option.image ? "" : "experience-scenery-thumb-lagoon"}`} aria-hidden="true">
-                {option.image ? <Image src={option.image} alt="" fill sizes="96px" /> : <span />}
-              </span>
-              <span>{option.shortLabel}</span>
+              <span className="experience-signal-image" aria-hidden="true"><Image src={getScenery(signal.sceneId).image} alt="" fill sizes="110px" /></span>
+              <span className="experience-signal-copy"><strong>{signal.label}</strong><small>{signal.bpm} breaths / min</small></span>
+              <span className="experience-signal-response"><strong>{signal.response}</strong><small>{signal.description}</small></span>
             </button>)}
           </div>
         </div>

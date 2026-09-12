@@ -28,6 +28,15 @@ test("invalid or lost mic estimates fall back to the saved manual value", () => 
   assert.equal(source.getCurrentBpm(), 14);
 });
 
+test("session capture uses the median of recent microphone estimates", () => {
+  const source = createBreathSource(12);
+  for (const bpm of [12, 12, 19, 12, 12]) source.setMicBpm(bpm);
+  assert.equal(source.getCurrentBpm(), 12);
+  assert.equal(source.getStableBpm(), 12);
+  source.setManualBpm(18);
+  assert.equal(source.getStableBpm(), 18);
+});
+
 test("moving the slider immediately takes over and subscribers can unsubscribe", () => {
   const source = createBreathSource();
   const seen: number[] = [];

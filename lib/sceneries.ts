@@ -1,26 +1,17 @@
-export const SCENERY_IDS = [
-  "lagoon",
-  "silk-pavilion",
-  "sea-of-clouds",
-  "golden-grassland",
-  "living-desert",
-  "aurora-horizon",
-  "jellyfish-sanctuary",
-  "cathedral-of-mist",
-  "floating-ink-world",
-] as const;
+export const SCENERY_IDS = ["still-lake", "willow-breeze"] as const;
 
 export type SceneryId = typeof SCENERY_IDS[number];
 export type SceneryMotion = "gentle" | "still";
 export type SceneryPhase = "inhale" | "exhale";
+export type PatientSignalId = "elevated" | "baseline";
 
 export type Scenery = {
   id: SceneryId;
   label: string;
   shortLabel: string;
   description: string;
-  image: string | null;
-  imageName: string | null;
+  image: string;
+  imageName: string;
   alt: string;
   setting: string;
   camera: string;
@@ -35,195 +26,90 @@ export type Scenery = {
   };
 };
 
+export type PatientSignal = {
+  id: PatientSignalId;
+  label: string;
+  bpm: number;
+  sceneId: SceneryId;
+  motion: SceneryMotion;
+  response: string;
+  description: string;
+};
+
 const COMMON_CAMERA = "fixed wide eye-level camera with no zoom, pan, tilt, or cuts";
 
 export const SCENERIES: readonly Scenery[] = [
   {
-    id: "lagoon",
-    label: "Quiet lagoon",
-    shortLabel: "Lagoon",
-    description: "Low water swells and a soft shoreline.",
-    image: null,
-    imageName: null,
-    alt: "A wide quiet lagoon bordered by a soft shoreline",
-    setting: "wide shallow tidal lagoon at dawn with a soft shoreline and distant low trees",
+    id: "still-lake",
+    label: "Still mist lake",
+    shortLabel: "Still lake",
+    description: "An almost motionless horizon for an elevated breathing signal.",
+    image: "/scenery-concepts/protective-still-lake.png",
+    imageName: "protective-still-lake.png",
+    alt: "A still misty lake between distant mountains at dawn",
+    setting: "wide mist-covered mountain lake at quiet dawn, muted blue-grey water and soft distant hills",
     camera: COMMON_CAMERA,
-    audioPrompt: "Soft natural water lapping at a quiet shore, light air, no voices, no melody, no sudden sounds.",
+    audioPrompt: "Barely audible water at a distant shore, soft open air, no voices, no melody, no sudden sounds.",
     motion: {
-      active: "Small smooth swells cross the lagoon at short regular intervals",
-      steady: "Long low swells travel evenly across the lagoon",
-      settled: "Broad slow swells cross the lagoon with long quiet pauses",
-      still: "The lagoon stays almost still, with barely perceptible surface movement",
-      inhale: "The water slowly rises in one broad gentle swell",
-      exhale: "The water slowly recedes as the swell softens",
+      active: "The lake remains nearly motionless, with one faint broad ripple far from the camera",
+      steady: "The lake remains nearly motionless, with a faint ripple dissolving into the mist",
+      settled: "The water is glassy and the mist drifts almost imperceptibly",
+      still: "The water and mist stay almost still, with no sudden or busy movement",
+      inhale: "The mist lifts almost imperceptibly from the water",
+      exhale: "The mist settles softly back toward the lake",
     },
   },
   {
-    id: "silk-pavilion",
-    label: "Silk pavilion",
-    shortLabel: "Silk",
-    description: "Translucent curtains breathe around a quiet room.",
-    image: "/scenery-concepts/silk-pavilion.png",
-    imageName: "silk-pavilion.png",
-    alt: "A peaceful translucent silk pavilion above still water",
-    setting: "translucent silk pavilion above a mirror-still floor in warm diffuse daylight",
+    id: "willow-breeze",
+    label: "Willow by the water",
+    shortLabel: "Willow breeze",
+    description: "A gentle breeze through leaves for a baseline breathing signal.",
+    image: "/scenery-concepts/willow-breeze.png",
+    imageName: "willow-breeze.png",
+    alt: "A willow tree beside a quiet lake in warm morning light",
+    setting: "mature willow beside a quiet mountain lake in warm diffuse morning light, long soft leaves filling the foreground",
     camera: COMMON_CAMERA,
-    audioPrompt: "Soft fabric moving in a light breeze, quiet open air, no voices, no melody, no sudden sounds.",
+    audioPrompt: "Soft wind moving through willow leaves beside quiet water, no voices, no melody, no sudden sounds.",
     motion: {
-      active: "Small coordinated folds travel through the curtains at short regular intervals",
-      steady: "Long smooth billows move evenly through every curtain",
-      settled: "Very broad slow billows pass through the silk with long quiet pauses",
-      still: "The silk stays almost still, with only the faintest movement at its lower edges",
-      inhale: "The curtains expand outward together in one soft breath",
-      exhale: "The curtains relax inward and their folds gently settle",
+      active: "A gentle breeze moves through the willow in soft coordinated waves",
+      steady: "Long willow leaves sway together in a slow even rhythm",
+      settled: "Only the outer willow leaves drift slowly, followed by long quiet pauses",
+      still: "The willow and lake stay almost still, with only the faintest movement at the leaf tips",
+      inhale: "The willow leaves lift together in one broad soft wave",
+      exhale: "The leaves release and settle gently toward the water",
     },
   },
+];
+
+export const PATIENT_SIGNALS: readonly PatientSignal[] = [
   {
-    id: "sea-of-clouds",
-    label: "Sea of clouds",
-    shortLabel: "Clouds",
-    description: "Cloud banks rise and settle below a clear horizon.",
-    image: "/scenery-concepts/sea-of-clouds.png",
-    imageName: "sea-of-clouds.png",
-    alt: "A calm view above broad cloud banks under a pale sky",
-    setting: "vast sea of soft cloud banks below a pale open sky at sunrise",
-    camera: COMMON_CAMERA,
-    audioPrompt: "A quiet high-altitude breeze and soft airy ambience, no voices, no melody, no sudden sounds.",
-    motion: {
-      active: "Small rounded cloud forms lift and merge at short regular intervals",
-      steady: "Wide cloud banks rise and spread in an even slow rhythm",
-      settled: "The whole cloud sea lifts almost imperceptibly with long pauses",
-      still: "The cloud banks stay almost still, with barely perceptible drifting at their edges",
-      inhale: "The cloud banks lift and gently open across the horizon",
-      exhale: "The clouds settle and gather into a soft continuous blanket",
-    },
+    id: "elevated",
+    label: "Faster breathing",
+    bpm: 18,
+    sceneId: "still-lake",
+    motion: "still",
+    response: "Protective calm",
+    description: "The scene simplifies and removes almost all motion.",
   },
   {
-    id: "golden-grassland",
-    label: "Golden grassland",
-    shortLabel: "Grassland",
-    description: "Warm bands move through tall meadow grass.",
-    image: "/scenery-concepts/golden-grassland.png",
-    imageName: "golden-grassland.png",
-    alt: "A wide golden grassland with distant hills in warm light",
-    setting: "wide golden grassland of tall soft grasses beneath a warm hazy sky",
-    camera: COMMON_CAMERA,
-    audioPrompt: "A soft breeze moving through tall dry grass, distant open air, no voices, no melody, no sudden sounds.",
-    motion: {
-      active: "Short soft waves travel through the grass at regular intervals",
-      steady: "Long coordinated bands move evenly across the grassland",
-      settled: "Very wide slow waves pass through the field with long pauses",
-      still: "The grasses stay almost still, with only their tips moving faintly",
-      inhale: "The grass lifts in one broad wave moving toward the horizon",
-      exhale: "The wave releases and the grasses softly settle upright",
-    },
-  },
-  {
-    id: "living-desert",
-    label: "Living desert",
-    shortLabel: "Desert",
-    description: "Sculptural dunes soften with the rhythm.",
-    image: "/scenery-concepts/living-desert.png",
-    imageName: "living-desert.png",
-    alt: "Smooth sculptural desert dunes in warm dawn light",
-    setting: "minimal sculptural desert of smooth wind-shaped dunes in warm dawn light",
-    camera: COMMON_CAMERA,
-    audioPrompt: "Very soft desert wind over fine sand, spacious quiet air, no voices, no melody, no sudden sounds.",
-    motion: {
-      active: "Fine ribbons of sand trace the dune crests at short regular intervals",
-      steady: "Broad shallow ripples travel evenly along the dune faces",
-      settled: "The dune surfaces soften in very slow broad waves with long pauses",
-      still: "The dunes stay almost still, with barely perceptible grains moving along one crest",
-      inhale: "The nearest dune gently rises and its ridge becomes rounder",
-      exhale: "The ridge lowers and loose sand softly settles down its face",
-    },
-  },
-  {
-    id: "aurora-horizon",
-    label: "Aurora horizon",
-    shortLabel: "Aurora",
-    description: "Luminous ribbons stretch across a still night.",
-    image: "/scenery-concepts/aurora-horizon.png",
-    imageName: "aurora-horizon.png",
-    alt: "Broad green and violet aurora ribbons above a dark horizon",
-    setting: "open dark northern horizon beneath broad green and violet aurora ribbons",
-    camera: COMMON_CAMERA,
-    audioPrompt: "A low quiet polar wind and spacious night ambience, no voices, no melody, no sudden sounds.",
-    motion: {
-      active: "Narrow light folds travel along the aurora at short regular intervals",
-      steady: "Broad luminous ribbons sweep evenly across the sky",
-      settled: "The aurora drifts in very wide slow arcs with long pauses",
-      still: "The aurora stays almost still, with barely perceptible light moving along its edges",
-      inhale: "The luminous ribbons stretch upward and open across the sky",
-      exhale: "The ribbons fold gently toward the horizon and soften",
-    },
-  },
-  {
-    id: "jellyfish-sanctuary",
-    label: "Jellyfish sanctuary",
-    shortLabel: "Jellyfish",
-    description: "Translucent forms pulse in deep blue water.",
-    image: "/scenery-concepts/jellyfish-sanctuary.png",
-    imageName: "jellyfish-sanctuary.png",
-    alt: "Large translucent jellyfish floating in calm deep blue water",
-    setting: "deep blue underwater sanctuary with a few large translucent jellyfish",
-    camera: COMMON_CAMERA,
-    audioPrompt: "Soft muffled underwater currents and distant gentle bubbles, no voices, no melody, no sudden sounds.",
-    motion: {
-      active: "The jellyfish pulse softly at short coordinated intervals",
-      steady: "The jellyfish expand and release in a smooth shared rhythm",
-      settled: "Each jellyfish makes one very slow broad pulse followed by a long pause",
-      still: "The jellyfish stay almost still, with barely perceptible movement in their trailing forms",
-      inhale: "The translucent bells slowly expand and gather soft light",
-      exhale: "The bells release and the trailing forms gently descend",
-    },
-  },
-  {
-    id: "cathedral-of-mist",
-    label: "Cathedral of mist",
-    shortLabel: "Mist",
-    description: "Quiet arches hold currents of colored fog.",
-    image: "/scenery-concepts/cathedral-of-mist.png",
-    imageName: "cathedral-of-mist.png",
-    alt: "Tall simple arches containing soft colored mist",
-    setting: "quiet monumental hall of simple pale arches filled with soft colored mist",
-    camera: COMMON_CAMERA,
-    audioPrompt: "A soft airy room tone in a large quiet hall, no footsteps, no voices, no melody, no sudden sounds.",
-    motion: {
-      active: "Small soft currents pass between the arches at short regular intervals",
-      steady: "Wide layers of mist travel evenly through the hall",
-      settled: "The mist moves in very broad slow currents with long pauses",
-      still: "The mist stays almost still, with barely perceptible movement near the floor",
-      inhale: "The mist gathers gently toward the center of the arches",
-      exhale: "The mist spreads outward and softens into the open hall",
-    },
-  },
-  {
-    id: "floating-ink-world",
-    label: "Floating ink world",
-    shortLabel: "Ink",
-    description: "Large color clouds bloom in clear space.",
-    image: "/scenery-concepts/floating-ink-world.png",
-    imageName: "floating-ink-world.png",
-    alt: "Large floating clouds of blue amber and rose ink in a pale space",
-    setting: "minimal pale space containing large floating clouds of blue amber and rose ink",
-    camera: COMMON_CAMERA,
-    audioPrompt: "Soft low liquid movement in a spacious quiet atmosphere, no voices, no melody, no sudden sounds.",
-    motion: {
-      active: "Small rounded blooms open through the ink at short regular intervals",
-      steady: "Large color clouds expand and circulate in an even slow rhythm",
-      settled: "The ink makes very broad slow blooms followed by long quiet pauses",
-      still: "The ink stays almost still, with barely perceptible diffusion at its outer edges",
-      inhale: "The color clouds bloom outward and their translucent edges open",
-      exhale: "The clouds fold inward and their edges softly dissolve",
-    },
+    id: "baseline",
+    label: "Baseline breathing",
+    bpm: 12,
+    sceneId: "willow-breeze",
+    motion: "gentle",
+    response: "Gentle presence",
+    description: "The scene can hold richer, soft movement through the leaves.",
   },
 ];
 
 const BY_ID = new Map<string, Scenery>(SCENERIES.map((scenery) => [scenery.id, scenery]));
 
 export function getScenery(id: string): Scenery {
-  return BY_ID.get(id) ?? SCENERIES[0];
+  return BY_ID.get(id) ?? SCENERIES[1];
+}
+
+export function patientSignalForBpm(bpm: number): PatientSignal {
+  return bpm >= 15 ? PATIENT_SIGNALS[0] : PATIENT_SIGNALS[1];
 }
 
 function paceClause(scenery: Scenery, targetBpm: number) {

@@ -37,6 +37,16 @@ test("silence, steady noise, and isolated clicks do not become breaths", () => {
   }
 });
 
+test("sustained airflow-like sound is marked as speech and never becomes a breath", () => {
+  const detector = new BreathDetector();
+  let reading = detector.update(0.003, 0);
+  for (let at = 50; at <= 2_000; at += 50) reading = detector.update(0.003, at);
+  for (let at = 2_050; at <= 10_000; at += 50) reading = detector.update(0.07, at);
+  assert.equal(reading.speechSuspect, true);
+  for (let at = 10_050; at <= 12_000; at += 50) reading = detector.update(0.003, at);
+  assert.equal(reading.bpm, null);
+});
+
 test("stale signal and long sampling gaps invalidate the estimate", () => {
   const detector = new BreathDetector();
   assert.ok(feed(detector, 12).bpm !== null);

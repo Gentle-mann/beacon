@@ -59,7 +59,7 @@ test("live is disabled by default and a local preview completes at 90 seconds th
   await expect(page.getByRole("button", { name: "Start live session", exact: true })).toBeDisabled();
   await expect(page.getByText(unavailable.unavailableReason, { exact: true })).toBeVisible();
   await expect(guide(page)).not.toBeChecked();
-  await expect(page.getByText("Quiet lagoon · local illustration", { exact: true })).toBeVisible();
+  await expect(page.getByText("Willow by the water · local reference image", { exact: true })).toBeVisible();
   await startPreview(page).click();
   await expect(stopSession(page)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Nothing to do. Just be here." })).toBeVisible();
@@ -78,23 +78,24 @@ test("live is disabled by default and a local preview completes at 90 seconds th
   await expect(page.getByRole("heading", { name: "At your own pace." })).toBeVisible();
 });
 
-test("a reference scenery changes the preview and stays locked during its session", async ({ page }) => {
+test("patient signals choose distinct responses and stay locked during a session", async ({ page }) => {
   await page.goto("/");
-  const silk = page.getByRole("radio", { name: /^Silk pavilion:/ });
-  await silk.click();
-  await expect(silk).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByText("Silk pavilion · local reference image", { exact: true })).toBeVisible();
-  await expect(page.locator(".experience-scene-image")).toHaveAttribute("src", /silk-pavilion/);
-  await silk.press("ArrowRight");
-  const clouds = page.getByRole("radio", { name: /^Sea of clouds:/ });
-  await expect(clouds).toBeFocused();
-  await expect(clouds).toHaveAttribute("aria-checked", "true");
-  await silk.click();
+  await page.getByText("Choose a starting pace", { exact: false }).click();
+  const faster = page.getByRole("radio", { name: /^Faster breathing/ });
+  const baseline = page.getByRole("radio", { name: /^Baseline breathing/ });
+  await faster.click();
+  await expect(faster).toHaveAttribute("aria-checked", "true");
+  await expect(pace(page)).toHaveValue("18");
+  await expect(page.getByText("Still mist lake · local reference image", { exact: true })).toBeVisible();
+  await expect(page.locator(".experience-scene-image")).toHaveAttribute("src", /protective-still-lake/);
+  await baseline.click();
+  await expect(baseline).toHaveAttribute("aria-checked", "true");
+  await expect(pace(page)).toHaveValue("12");
   await startPreview(page).click();
-  await expect(silk).toBeDisabled();
-  await expect(page.getByRole("radio", { name: /^Sea of clouds:/ })).toBeDisabled();
+  await expect(faster).toBeDisabled();
+  await expect(baseline).toBeDisabled();
   await stopSession(page).click();
-  await expect(silk).toBeEnabled();
+  await expect(faster).toBeEnabled();
 });
 
 test("Stop ends preview immediately and later timer ticks cannot revive the scene", async ({ page }) => {
@@ -192,7 +193,7 @@ test("mobile controls fit at 375px and Stop stays reachable after scrolling", as
 test("reduced motion disables decorative movement and sound controls remain keyboard accessible", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await expect(page.locator(".experience-waterlight").first()).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".experience-live-video")).toHaveCSS("transition-duration", "0s");
   const sound = page.getByRole("button", { name: "Turn sound on", exact: true });
   await sound.focus();
   await sound.press("Enter");
