@@ -71,20 +71,45 @@ export function useOrbisSession(resetJwt: () => void) {
   const [promptLog, setPromptLog] = useState<PromptLogEntry[]>([]);
   const [errorLog, setErrorLog] = useState<ErrorLogEntry[]>([]);
   const [events, setEvents] = useState<string[]>([]);
+  /** Every transport status transition, timestamped. The record that tells us
+   *  whether a mid-run death is a fluke or a clock. */
+  const [transportLog, setTransportLog] = useState<string[]>([]);
 
   // ---- billing meter -------------------------------------------------------
   const [connectedAt, setConnectedAt] = useState<number | null>(null);
+  const [frozenCredits, setFrozenCredits] = useState<number | null>(null);
+  const creditsRef = useRef(0);
   const [generatingAt, setGeneratingAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   // ---- reconnect bookkeeping ----------------------------------------------
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [openSessions, setOpenSessions] = useState<number | null>(null);
+  const [restating, setRestating] = useState(false);
   const intentionalDisconnect = useRef(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousStatus = useRef(status);
 
   const everReady = useRef(false);
+  /** Set when the operator pressed the combined Warm+Start action. */
+  const autoStart = useRef(false);
+  /** Lets the status effect reach startRun, which is defined further down. */
+  const startRunRef = useRef<(() => Promise<void>) | null>(null);
+
+  /**
+   * Drift test / Gate 2 spine: re-send a byte-identical prompt every N chunks.
+   * Driven off chunk_complete, never a wall-clock timer — observed cadence is
+   * ~1.96s/chunk against the 1.833s the audio sample count implies, so a timer
+   * would slew out of phase with the chunk boundaries the model actually
+   * lands prompts on.
+   */
+  const restateRef = useRef(false);
+  const restateEveryRef = useRef(2);
+  const lastRestateChunk = useRef<number | null>(null);
+  const sendPromptRef = useRef<
+    ((prompt: string, source: string) => Promise<unknown>) | null
+  >(null);
+  const currentPromptRef = useRef("");
   const chunkRef = useRef<number | null>(null);
   const conditionsReadyResolver = useRef<(() => void) | null>(null);
 
@@ -159,6 +184,18 @@ export function useOrbisSession(resetJwt: () => void) {
           setFirstFrameAt((current) => current ?? Date.now());
         }
       }
+      // Restate on the chunk boundary, not on a timer.
+      if (restateRef.current && index !== null && currentPromptRef.current) {
+        const since =
+          lastRestateChunk.current === null
+            ? Infinity
+            : index - lastRestateChunk.current;
+        if (since >= restateEveryRef.current) {
+          lastRestateChunk.current = index;
+          void sendPromptRef.current?.(currentPromptRef.current, "restate");
+        }
+      }
+
       // chunk_complete is high-frequency; keep it out of the event feed.
       return;
     }
@@ -237,8 +274,22 @@ export function useOrbisSession(resetJwt: () => void) {
     const was = previousStatus.current;
     previousStatus.current = status;
 
+    if (was !== status) {
+      const line = `${stamp()}  ${was} -> ${status}`;
+      setTransportLog((current) => [line, ...current].slice(0, 100));
+      if (typeof window !== "undefined") {
+        const w = window as unknown as { __transport?: string[] };
+        w.__transport ??= [];
+        w.__transport.unshift(line);
+      }
+    }
+
     if (status === "ready") {
       everReady.current = true;
+      if (autoStart.current && !runStarted) {
+        autoStart.current = false;
+        void startRunRef.current?.();
+      }
       setConnectedAt((current) => current ?? Date.now());
       setReconnectAttempt(0);
       setViewMounted(true);
@@ -371,9 +422,11 @@ export function useOrbisSession(resetJwt: () => void) {
   );
 
   // ---- lifecycle -----------------------------------------------------------
-  const warm = () =>
+  const warm = (thenStart = false) =>
     runAction("connect", async () => {
+      autoStart.current = thenStart;
       intentionalDisconnect.current = false;
+      setFrozenCredits(null);
       setPhase("connecting");
       setFirstFrameAt(null);
       setSessionChunk(null);
@@ -394,6 +447,8 @@ export function useOrbisSession(resetJwt: () => void) {
       // sending a tier we guessed is the documented way to get it rejected.
 
       const ready = waitForConditionsReady();
+      currentPromptRef.current = OPENING_PROMPT;
+      lastRestateChunk.current = null;
       await sendPrompt(OPENING_PROMPT, "opening");
       setPhase("waiting for conditions_ready");
       await ready.promise;
@@ -403,6 +458,9 @@ export function useOrbisSession(resetJwt: () => void) {
       setRunStarted(true);
       setGeneratingAt((current) => current ?? Date.now());
     });
+
+  startRunRef.current = startRun;
+  sendPromptRef.current = sendPrompt;
 
   /** Prominent, deliberate, and the only path that suppresses auto-reconnect. */
   const killSession = async () => {
@@ -440,6 +498,10 @@ export function useOrbisSession(resetJwt: () => void) {
 
     everReady.current = false;
     resetJwt();
+    // Freeze the meter at the run's final total rather than zeroing it — the
+    // number you want is what the run just cost, and that was being wiped the
+    // instant you killed it.
+    setFrozenCredits(creditsRef.current);
     setConnectedAt(null);
     setGeneratingAt(null);
     setPhase("killed");
@@ -450,7 +512,9 @@ export function useOrbisSession(resetJwt: () => void) {
   // ---- derived -------------------------------------------------------------
   const connectedSeconds = connectedAt ? (now - connectedAt) / 1000 : 0;
   const generatingSeconds = generatingAt ? (now - generatingAt) / 1000 : 0;
-  const creditsBurned = Math.round(connectedSeconds * CREDITS_PER_SECOND);
+  const liveCredits = Math.round(connectedSeconds * CREDITS_PER_SECOND);
+  creditsRef.current = liveCredits || creditsRef.current;
+  const creditsBurned = connectedAt ? liveCredits : (frozenCredits ?? 0);
 
   return {
     // connection
@@ -474,13 +538,21 @@ export function useOrbisSession(resetJwt: () => void) {
     promptLog,
     errorLog,
     events,
+    transportLog,
     // meter
     connectedAt,
     connectedSeconds,
     generatingSeconds,
     creditsBurned,
     // actions
+    restating,
+    toggleRestate: () => {
+      restateRef.current = !restateRef.current;
+      lastRestateChunk.current = null;
+      setRestating(restateRef.current);
+    },
     warm,
+    warmAndStart: () => warm(true),
     startRun,
     killSession,
     refreshOpenSessions,

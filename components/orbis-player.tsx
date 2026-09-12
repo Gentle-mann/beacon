@@ -15,15 +15,56 @@ type OrbisPlayerProps = {
   muted: boolean;
   status: string;
   phase: string;
+  runStarted: boolean;
+  framesEmitted: number | null;
+  busy: boolean;
 };
 
-export function OrbisPlayer({
-  mounted,
-  connected,
-  muted,
+/**
+ * Plain language for whoever is standing in front of the screen. A black
+ * rectangle looks identical whether the model is warming, waiting to be told
+ * to start, or broken — so it has to say which, and say what to press next.
+ */
+function describe({
   status,
   phase,
-}: OrbisPlayerProps) {
+  connected,
+  runStarted,
+  framesEmitted,
+  busy,
+}: Omit<OrbisPlayerProps, "mounted" | "muted">) {
+  if (runStarted && (framesEmitted ?? 0) > 0) return null; // picture is live
+  if (runStarted) {
+    return { head: "Generating…", sub: "First picture lands a few seconds in." };
+  }
+  if (status === "connecting" || status === "waiting") {
+    return { head: "Warming the session…", sub: "About 9 seconds." };
+  }
+  if (status === "disconnected") {
+    if (phase === "killed") {
+      return { head: "Session killed", sub: "Press WARM + START to run again." };
+    }
+    if (phase.startsWith("reconnecting")) {
+      return { head: "Connection lost — reconnecting…", sub: phase };
+    }
+    return { head: "No session", sub: "Press WARM + START." };
+  }
+  if (connected && busy) {
+    return { head: "Starting generation…", sub: "Arming the model." };
+  }
+  if (connected) {
+    return {
+      head: "Warm and idle — not generating",
+      sub: "Press Start. This is costing credits already.",
+    };
+  }
+  return { head: status, sub: phase };
+}
+
+export function OrbisPlayer(props: OrbisPlayerProps) {
+  const { mounted, muted, status, phase } = props;
+  const overlay = describe(props);
+
   return (
     <div className="player">
       {mounted ? (
@@ -33,11 +74,15 @@ export function OrbisPlayer({
           muted={muted}
           videoObjectFit="cover"
         />
-      ) : (
-        <div className="player-placeholder">
-          {connected ? "Connected — arm a run" : "No session"}
+      ) : null}
+
+      {overlay ? (
+        <div className={`player-overlay${mounted ? " player-overlay-on" : ""}`}>
+          <strong>{overlay.head}</strong>
+          <span>{overlay.sub}</span>
         </div>
-      )}
+      ) : null}
+
       <span className={`status status-${status}`}>
         {status} · {phase}
       </span>
