@@ -53,6 +53,9 @@ function SessionShell({ resetJwt }: { resetJwt: () => void }) {
         muted={session.muted}
         status={session.status}
         phase={session.phase}
+        runStarted={session.runStarted}
+        framesEmitted={session.framesEmitted}
+        busy={session.busy}
       />
       <StatusPanel session={session} />
     </div>
