@@ -1,0 +1,364 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ink: #f6f4ed;
+  --dim: #8d8a84;
+  --line: #26262a;
+  --panel: #121214;
+  --alert: #ff6b5a;
+  --ok: #6fd38a;
+  background: #0a0a0b;
+  color: var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: #0a0a0b;
+}
+
+button,
+textarea,
+select,
+input {
+  font: inherit;
+}
+
+main {
+  width: 100%;
+  padding: 12px;
+}
+
+/* ---- layout ------------------------------------------------------------- */
+
+.session-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .session-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.player {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.player video {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.player-placeholder {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--dim);
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+
+.status {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--dim);
+}
+
+.status-ready {
+  color: var(--ok);
+}
+
+.status-connecting,
+.status-waiting {
+  color: #e8c05a;
+}
+
+.status-disconnected {
+  color: var(--alert);
+}
+
+/* ---- panel -------------------------------------------------------------- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100vh - 24px);
+  padding: 14px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.panel-lifecycle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.btn {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #1c1c20;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.36;
+  cursor: not-allowed;
+}
+
+.btn-warm:not(:disabled) {
+  border-color: #4a4636;
+  background: #2a2618;
+}
+
+.btn-start:not(:disabled) {
+  border-color: #2f4a38;
+  background: #17291d;
+}
+
+/* Deliberately loud. A leaked session is a billing leak we cannot see. */
+.btn-kill {
+  grid-column: 1 / -1;
+  border-color: #5c2320;
+  background: #3a1512;
+  color: #ffb4aa;
+  letter-spacing: 0.06em;
+}
+
+.btn-kill:not(:disabled):hover {
+  background: #58201b;
+  color: #fff;
+}
+
+/* ---- stats -------------------------------------------------------------- */
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin: 0;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.stat {
+  padding: 7px 9px;
+  background: #151518;
+}
+
+.stat dt {
+  color: var(--dim);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.stat dd {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.alert {
+  color: var(--alert);
+}
+
+/* ---- credit meter ------------------------------------------------------- */
+
+.meter {
+  padding: 10px;
+  background: #151518;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.meter-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--dim);
+}
+
+.meter-head strong {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.meter-bar {
+  height: 5px;
+  margin: 7px 0 6px;
+  background: #26262a;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.meter-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #6fd38a, #e8c05a 60%, #ff6b5a);
+}
+
+.meter-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--dim);
+}
+
+.meter-note {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--dim);
+}
+
+/* ---- blocks and logs ---------------------------------------------------- */
+
+.block h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 6px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.count {
+  padding: 1px 6px;
+  background: #26262a;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  color: var(--ink);
+}
+
+.link {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  font-size: 0.66rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.prompt-active {
+  margin: 0;
+  padding: 8px 10px;
+  background: #151518;
+  border: 1px solid var(--line);
+  border-left: 2px solid #4a4636;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.muted {
+  margin: 0;
+  color: var(--dim);
+  font-size: 0.76rem;
+}
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 210px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.log li {
+  display: flex;
+  gap: 8px;
+  padding: 5px 7px;
+  background: #151518;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.log .clock {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--dim);
+}
+
+.log em {
+  font-style: normal;
+  color: #e8c05a;
+}
+
+.chunkref {
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  color: var(--dim);
+}
+
+.log-error li {
+  background: #241311;
+  color: #ffb4aa;
+}
+
+/* command_error text is shown exactly as the model sent it. */
+.verbatim {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+
+.log-events li {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--dim);
+}
