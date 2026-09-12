@@ -1,12 +1,7 @@
 "use client";
 
 import { ARC } from "@/lib/scene";
-import {
-  CREDIT_BUDGET,
-  USD_PER_CREDIT,
-  formatClock,
-  stamp,
-} from "@/lib/orbis";
+import { CREDIT_BUDGET, USD_PER_CREDIT, formatClock } from "@/lib/orbis";
 import type { OrbisSession } from "@/hooks/use-orbis-session";
 
 export function StatusPanel({ session }: { session: OrbisSession }) {
@@ -63,50 +58,22 @@ export function StatusPanel({ session }: { session: OrbisSession }) {
         </button>
       ) : null}
 
-      {/* BreathSource -> arc. The slider is the always-works path; the mic
-          feeds the same number later. */}
-      <div className="arc-box">
-        <label className="arc-row">
-          <span>breath</span>
-          <input
-            type="range"
-            min={4}
-            max={24}
-            step={0.5}
-            value={session.breathBpm}
-            disabled={session.arcRunning}
-            onChange={(e) => session.setBreathBpm(Number(e.target.value))}
-          />
-          <strong>{session.breathBpm.toFixed(1)} bpm</strong>
-        </label>
-        <button
-          type="button"
-          className={`btn btn-arc${session.arcRunning ? " btn-arc-on" : ""}`}
-          disabled={!session.runStarted}
-          onClick={session.arcRunning ? session.stopArc : session.startArc}
-        >
-          {session.arcRunning
-            ? `◉ ARC ${session.arcElapsed.toFixed(0)}s / ${ARC.durationS}s`
-            : `▶ run ${ARC.durationS}s arc → ${ARC.targetBpm} bpm`}
-        </button>
-        {session.arcRunning || session.targetBpm !== null ? (
-          <div className="arc-readout">
-            <span>
-              target <strong>{session.targetBpm?.toFixed(1) ?? "—"}</strong> bpm
-            </span>
-            <span>phase {session.phaseIndex ?? "—"}</span>
-            <span>
-              {session.arcElapsed < ARC.descentS ? "descending" : "holding"}
-            </span>
-          </div>
-        ) : null}
-        <div className="arc-bar">
-          <span
-            style={{
-              width: `${Math.min(100, (session.arcElapsed / ARC.durationS) * 100)}%`,
-            }}
-          />
-        </div>
+      <button
+        type="button"
+        className={`btn btn-arc${session.arcRunning ? " btn-arc-on" : ""}`}
+        disabled={!session.runStarted}
+        onClick={session.arcRunning ? session.stopArc : session.startArc}
+      >
+        {session.arcRunning
+          ? `◉ ARC ${session.arcElapsed.toFixed(0)}s / ${ARC.durationS}s · target ${session.targetBpm?.toFixed(1) ?? "—"} bpm`
+          : `▶ run ${ARC.durationS}s arc → ${ARC.targetBpm} bpm`}
+      </button>
+      <div className="arc-bar">
+        <span
+          style={{
+            width: `${Math.min(100, (session.arcElapsed / ARC.durationS) * 100)}%`,
+          }}
+        />
       </div>
 
       <label className="seed-row">
@@ -285,7 +252,6 @@ export function StatusPanel({ session }: { session: OrbisSession }) {
             ))
           )}
         </ul>
-        <p className="meter-note">panel rendered {stamp()}</p>
       </section>
     </aside>
   );
