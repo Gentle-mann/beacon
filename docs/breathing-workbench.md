@@ -54,7 +54,12 @@ uses the integral of the changing rate; multiplying elapsed time by the current
 rate would move the phase backwards. The fixed ~3.92s send interval undersamples
 faster breath cycles; this demo does not establish physical synchronization.
 
-### Handoff to Eni (requires the live slot)
+### Live adapter and handoff to Eni (requires the live slot)
+
+The root patient experience now implements the sequence below in
+`lib/experience-controller.ts`, with its own bounded Reactor adapter. The old
+operator restate loop remains at `/operator`; it is not mounted on `/` or
+`/breath`. See [experience lifecycle and acceptance](experience.md).
 
 1. Lock the seed and tune the provisional inhale/exhale wording. `lib/scene.ts`
    is untouched; SETTING/CAMERA/CONTINUITY still come from that tuning file.
@@ -70,5 +75,5 @@ faster breath cycles; this demo does not establish physical synchronization.
    Recovery must preserve the original deadline. Run the integration on the
    locked seed with Eni driving the slot.
 
-No live integration, model sessions or claims of real microphone accuracy were
-part of the automated offline checks.
+The live adapter is implemented, but no real model sessions or validation of
+microphone accuracy were part of the automated offline checks.
