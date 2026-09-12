@@ -599,3 +599,7 @@ main {
   line-height: 1.4;
   color: var(--dim);
 }
+
+.speech {
+  color: #e8c05a;
+}

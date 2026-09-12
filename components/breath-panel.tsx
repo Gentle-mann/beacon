@@ -128,10 +128,14 @@ export function BreathPanel({
         {breath.micError ? (
           <span className="alert">mic: {breath.micError}</span>
         ) : breath.kind === "mic" && breath.listening ? (
-          breath.detectedBpm === null ? (
+          breath.speechSuspect ? (
+            <span className="speech">
+              sustained sound — treating as speech, readings discarded
+            </span>
+          ) : breath.detectedBpm === null ? (
             `listening — ${breath.cycles} breath(s) seen, need 2 clean ones`
           ) : (
-            `${breath.cycles} breaths · level ${breath.level.toFixed(4)}`
+            `${breath.cycles} breaths · level ${breath.level.toFixed(4)} · arc starts at ${breath.stableBpm(5000).toFixed(1)}`
           )
         ) : (
           "slider drives the arc — always works"

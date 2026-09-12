@@ -39,6 +39,26 @@ export const BREATH = {
   window: 5,
   /** Envelope history kept for the waveform display. */
   historyLength: 300,
+  /**
+   * An inhale does not last this long. When the envelope stays above the
+   * baseline for longer, it is sustained sound — talking — not a breath, so
+   * readings taken during it are not trustworthy.
+   */
+  speechHoldS: 4,
+  /**
+   * Consecutive identical RMS samples that mean the input has stalled — a
+   * suspended AudioContext or paused track keeps handing back the same buffer.
+   * Without this the detector LATCHES: fast and slow converge to the same
+   * value, release needs fast < slow*0.94, which a constant signal can never
+   * satisfy, so `rising` stays true forever and never recovers even once audio
+   * returns.
+   *
+   * Must exceed the longest plausible QUIET phase of a real breath or slow
+   * breathing trips it: at the 4 bpm floor the gap is about 8s. Real microphone
+   * input is never bit-identical, so in practice this only fires on a genuinely
+   * frozen stream.
+   */
+  stallSamples: 200,
 } as const;
 
 export type BreathState = {
@@ -52,6 +72,13 @@ export type BreathState = {
   bpm: number | null;
   /** Breaths counted since start. */
   cycles: number;
+  /**
+   * True while the envelope has been held above the baseline longer than any
+   * real inhale — i.e. someone is talking. Readings taken now get discarded.
+   */
+  speechSuspect: boolean;
+  /** True when the input has gone constant — stalled, not quiet. */
+  stalled: boolean;
   /** Recent envelope samples, oldest first, for drawing. */
   history: number[];
   /** Baseline samples matching `history`, so the display can show the threshold. */
@@ -70,6 +97,9 @@ export class BreathDetector {
   private lastCrossingMs: number | null = null;
   private intervals: number[] = [];
   private lastMs: number | null = null;
+  private risingSinceMs: number | null = null;
+  private lastRms: number | null = null;
+  private identicalCount = 0;
 
   cycles = 0;
   history: number[] = [];
@@ -83,6 +113,9 @@ export class BreathDetector {
     this.lastCrossingMs = null;
     this.intervals = [];
     this.lastMs = null;
+    this.risingSinceMs = null;
+    this.lastRms = null;
+    this.identicalCount = 0;
     this.cycles = 0;
     this.history = [];
     this.baselineHistory = [];
@@ -92,6 +125,23 @@ export class BreathDetector {
   push(rms: number, tMs: number): BreathState {
     const dt = this.lastMs === null ? BREATH.sampleMs / 1000 : Math.max(0.001, (tMs - this.lastMs) / 1000);
     this.lastMs = tMs;
+
+    // Stall detection comes first: a latched `above` must be released before
+    // any crossing logic runs, or it never recovers.
+    if (this.lastRms !== null && rms === this.lastRms) {
+      this.identicalCount += 1;
+    } else {
+      this.identicalCount = 0;
+    }
+    this.lastRms = rms;
+    const stalled = this.identicalCount >= BREATH.stallSamples;
+    if (stalled) {
+      this.above = false;
+      this.risingSinceMs = null;
+      // Drop the crossing anchor too: the gap across a stall is not a breath
+      // interval, and keeping it would inject a fake one on resume.
+      this.lastCrossingMs = null;
+    }
 
     if (!this.primed) {
       // Start both filters at the first sample so the baseline does not spend
@@ -109,6 +159,7 @@ export class BreathDetector {
 
     if (!this.above && this.fast > threshold) {
       this.above = true;
+      this.risingSinceMs = tMs;
       if (this.lastCrossingMs !== null) {
         const interval = (tMs - this.lastCrossingMs) / 1000;
         if (interval >= BREATH.minIntervalS && interval <= BREATH.maxIntervalS) {
@@ -123,6 +174,7 @@ export class BreathDetector {
       this.lastCrossingMs = tMs;
     } else if (this.above && this.fast < releaseAt) {
       this.above = false;
+      this.risingSinceMs = null;
     }
 
     this.history.push(this.fast);
@@ -132,10 +184,17 @@ export class BreathDetector {
       this.baselineHistory.shift();
     }
 
+    const heldFor =
+      this.above && this.risingSinceMs !== null
+        ? (tMs - this.risingSinceMs) / 1000
+        : 0;
+
     return {
       envelope: this.fast,
       baseline: threshold,
       rising: this.above,
+      speechSuspect: heldFor > BREATH.speechHoldS,
+      stalled,
       bpm: this.bpm(),
       cycles: this.cycles,
       history: this.history,
@@ -163,4 +222,14 @@ export function rmsOf(samples: Float32Array) {
   let sum = 0;
   for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
   return Math.sqrt(sum / samples.length);
+}
+
+/** Median of a numeric list, or null when empty. */
+export function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
 }

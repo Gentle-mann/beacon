@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactorProvider } from "@reactor-team/js-sdk";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BreathPanel } from "@/components/breath-panel";
 import { OrbisPlayer } from "@/components/orbis-player";
@@ -50,10 +50,69 @@ function SessionShell({ resetJwt }: { resetJwt: () => void }) {
 
   // A ref, not a prop: the arc reads the rate at the instant it starts, and a
   // value that changes 20x a second should not re-run the session hook.
+  // The arc starts from a MEDIAN of the last 5s with speech-tainted readings
+  // removed, not the instantaneous value — see `stableBpm`.
   const breathRate = useRef(sliderBpm);
-  breathRate.current = breath.effectiveBpm;
+  breathRate.current = breath.stableBpm(5000);
 
   const session = useOrbisSession(resetJwt, breathRate);
+
+  /**
+   * Telemetry for stability testing. Samples once a second and ships a rolling
+   * snapshot to disk every 5s, so a run done in the operator's own browser can
+   * be read back and judged on numbers instead of impressions.
+   *
+   * The live values are read through a ref rather than captured in the effect's
+   * closure. Depending on `breath`/`session` directly re-created both intervals
+   * on EVERY render — and during an arc this component re-renders many times a
+   * second, so the 5s shipper was destroyed long before it could fire and a
+   * whole run logged nothing.
+   *
+   * Diagnostics only — nothing in the demo path depends on it.
+   */
+  const samples = useRef<object[]>([]);
+  const runStart = useRef<number>(Date.now());
+  /** Per-tab id, so two open tabs cannot overwrite each other's run. */
+  const clientId = useRef<string>(Math.random().toString(36).slice(2, 10));
+  const live = useRef({ breath, session });
+  live.current = { breath, session };
+
+  useEffect(() => {
+    const tick = setInterval(() => {
+      const { breath: b, session: se } = live.current;
+      samples.current.push({
+        t: Date.now() - runStart.current,
+        detected: b.detectedBpm,
+        effective: b.effectiveBpm,
+        speech: b.speechSuspect,
+        target: se.targetBpm,
+        arcElapsed: se.arcRunning ? se.arcElapsed : null,
+        level: Number(b.level.toFixed(5)),
+        envelope: Number(b.envelope.toFixed(5)),
+        cycles: b.cycles,
+        rising: b.rising,
+      });
+      if (samples.current.length > 1200) samples.current.shift();
+    }, 1000);
+
+    const ship = setInterval(() => {
+      if (!samples.current.length) return;
+      void fetch("/api/breathlog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: live.current.breath.kind,
+          clientId: clientId.current,
+          samples: samples.current,
+        }),
+      }).catch(() => {});
+    }, 5000);
+
+    return () => {
+      clearInterval(tick);
+      clearInterval(ship);
+    };
+  }, []);
 
   return (
     <div className="session-grid">
