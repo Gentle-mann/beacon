@@ -1,9 +1,9 @@
 import type { Reactor } from "@reactor-team/js-sdk";
 import type { ExperienceMode, ExperienceTransport } from "./experience-controller";
 import type { ExperienceToken } from "./experience-config";
-import { ORBIS_MODEL_NAME, ORBIS_TRACKS } from "./orbis";
+import { ORBIS_MODEL_NAME, ORBIS_TRACKS, unwrapOrbisMessage } from "./orbis";
 
-type Client = Pick<Reactor, "on" | "off" | "connect" | "reconnect" | "disconnect" | "sendCommand">;
+type Client = Pick<Reactor, "on" | "off" | "connect" | "reconnect" | "disconnect" | "sendCommand" | "uploadFile">;
 type Events = { onTransportStatus(status: string): void; onMessage(message: unknown): void; onError(message: string): void };
 type Lease = {
   cancelled: boolean;
@@ -144,6 +144,36 @@ export function createExperienceTransport(options: Options): ExperienceTransport
       try { await lease.client.reconnect({ maxAttempts: 1 }); }
       catch { throw new Error("The live connection could not recover. You can continue with the calm preview."); }
       finally { lease.connecting = false; if (lease.cancelled) await closeLease(lease); }
+    },
+    async prepareImage(asset) {
+      const failure = "The selected scenery could not be prepared. You can continue with the calm preview.";
+      if (!/^\/scenery-concepts\/[a-z0-9-]+\.png$/.test(asset.url) || !/^[a-z0-9-]+\.png$/.test(asset.name)) {
+        throw new Error(failure);
+      }
+      if (options.getMode() === "preview") {
+        if (!previewActive) return;
+        options.events.onMessage({ type: "state", has_image: true });
+        return { type: "image_accepted" };
+      }
+      const lease = current;
+      if (!lease?.client || lease.cancelled) throw new Error("The live session is closed.");
+      try {
+        const response = await fetcher(asset.url, { cache: "force-cache", signal: AbortSignal.timeout(12_000) });
+        if (!response.ok) throw new Error(failure);
+        const image = await response.blob();
+        if (!image.type.startsWith("image/") || image.size === 0 || image.size > 10_000_000) throw new Error(failure);
+        if (lease.cancelled || current !== lease) return;
+        const uploaded = await lease.client.uploadFile(image, { name: asset.name });
+        if (lease.cancelled || current !== lease) return;
+        const raw = await lease.client.sendCommand("set_image", { image: uploaded });
+        if (lease.cancelled || current !== lease) return;
+        const reply = unwrapOrbisMessage(raw);
+        if (reply?.type !== "image_accepted") throw new Error(failure);
+        return raw;
+      } catch {
+        if (lease.cancelled || current !== lease) return;
+        throw new Error(failure);
+      }
     },
     async sendCommand(name, data) {
       if (options.getMode() === "preview") {

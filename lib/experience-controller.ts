@@ -1,6 +1,6 @@
-import { advanceEntrainment, ARC_DURATION_MS, createEntrainmentState, phaseClause, promptAt, type EntrainmentState } from "./entrainment";
+import { advanceEntrainment, ARC_DURATION_MS, createEntrainmentState, promptAt, type EntrainmentState } from "./entrainment";
 import { chunkIndexOf, unwrapOrbisMessage } from "./orbis";
-import { AUDIO_PROMPT, buildPrompt } from "./scene";
+import { buildSceneryPrompt, getScenery, type SceneryId } from "./sceneries";
 
 export type ExperienceStatus = "idle" | "connecting" | "preparing" | "running" | "recovering" | "stopping" | "completed" | "stopped" | "fallback";
 export type ExperienceMode = "preview" | "live";
@@ -11,6 +11,7 @@ export type ExperienceSnapshot = {
   mode: ExperienceMode;
   elapsedMs: number;
   startBpm: number;
+  sceneId: SceneryId;
   guideEnabled: boolean;
   motion: ExperienceMotion;
   framesSeen: boolean;
@@ -21,6 +22,7 @@ export type ExperienceSnapshot = {
 export type ExperienceTransport = {
   connect(): Promise<void>;
   reconnect(): Promise<void>;
+  prepareImage(asset: { url: string; name: string }): Promise<unknown>;
   sendCommand(name: string, data: Record<string, unknown>): Promise<unknown>;
   /** Must close owned server sessions independently of a blocked SDK queue. */
   close(): Promise<boolean>;
@@ -43,7 +45,7 @@ function signal() {
 
 /** A bounded session, shared by the actual Reactor adapter and offline fixture. */
 export function createExperienceController(transport: ExperienceTransport, clock: ExperienceClock = defaultClock) {
-  let snapshot: ExperienceSnapshot = { status: "idle", mode: "preview", elapsedMs: 0, startBpm: 12, guideEnabled: false, motion: "gentle", framesSeen: false, error: null, cleanupPending: false, promptLog: [] };
+  let snapshot: ExperienceSnapshot = { status: "idle", mode: "preview", elapsedMs: 0, startBpm: 12, sceneId: "lagoon", guideEnabled: false, motion: "gentle", framesSeen: false, error: null, cleanupPending: false, promptLog: [] };
   const listeners = new Set<() => void>();
   const timers = new Set<unknown>();
   let epoch = 0;
@@ -51,6 +53,7 @@ export function createExperienceController(transport: ExperienceTransport, clock
   let arc: EntrainmentState | null = null;
   let rawStatus = "disconnected";
   let ready = signal();
+  let imageReady = signal();
   let conditions = signal();
   let startupTimer: unknown;
   let recoveryTimer: unknown;
@@ -73,11 +76,12 @@ export function createExperienceController(transport: ExperienceTransport, clock
   const valid = (id: number) => active && epoch === id;
   function currentElapsed() { return arc ? Math.min(ARC_DURATION_MS, Math.max(0, clock.now() - arc.startedAtMs)) : 0; }
   function scenePrompt(elapsed: number) {
-    const motion = snapshot.motion === "still"
-      ? "The surface stays almost still, with barely perceptible movement"
-      : "Long low swells move gently across the water";
-    const phase = snapshot.guideEnabled ? `. ${phaseClause(promptAt(snapshot.startBpm, elapsed).phase)}` : "";
-    return buildPrompt(motion + phase);
+    const timing = promptAt(snapshot.startBpm, elapsed);
+    return buildSceneryPrompt(snapshot.sceneId, {
+      motion: snapshot.motion,
+      targetBpm: timing.targetBpm,
+      phase: snapshot.guideEnabled ? timing.phase : null,
+    });
   }
 
   async function cleanup(id: number) {
@@ -101,6 +105,7 @@ export function createExperienceController(transport: ExperienceTransport, clock
     recoverySequence++;
     queuedPrompt = null;
     ready.resolve(false);
+    imageReady.resolve(false);
     conditions.resolve(false);
     for (const timer of timers) clock.clearTimeout(timer);
     timers.clear();
@@ -150,7 +155,7 @@ export function createExperienceController(transport: ExperienceTransport, clock
     later(() => pulse(id), 100);
   }
 
-  async function start(options: { mode: ExperienceMode; seed: number | null; startBpm: number }) {
+  async function start(options: { mode: ExperienceMode; seed: number | null; startBpm: number; sceneId: SceneryId }) {
     if (active || snapshot.cleanupPending || pendingLifecycle) return;
     if (options.mode === "live" && (!Number.isSafeInteger(options.seed) || options.seed === null || options.seed < 0)) {
       publish({ status: "fallback", error: "A locked seed is required before starting live video." });
@@ -160,9 +165,10 @@ export function createExperienceController(transport: ExperienceTransport, clock
     active = true;
     rawStatus = "disconnected";
     arc = null;
-    ready = signal(); conditions = signal();
+    ready = signal(); imageReady = signal(); conditions = signal();
     promptBusy = false; queuedPrompt = null;
-    publish({ status: "connecting", mode: options.mode, startBpm: Math.min(20, Math.max(4, Number.isFinite(options.startBpm) ? options.startBpm : 12)), elapsedMs: 0, framesSeen: false, promptLog: [], cleanupPending: false, error: null });
+    const scenery = getScenery(options.sceneId);
+    publish({ status: "connecting", mode: options.mode, sceneId: scenery.id, startBpm: Math.min(20, Math.max(4, Number.isFinite(options.startBpm) ? options.startBpm : 12)), elapsedMs: 0, framesSeen: false, promptLog: [], cleanupPending: false, error: null });
     startupTimer = later(() => { if (valid(id)) void finish("fallback", "The scene took too long to start. You can keep using the calm preview."); }, 30_000);
     pulse(id);
     pendingLifecycle++;
@@ -172,8 +178,17 @@ export function createExperienceController(transport: ExperienceTransport, clock
       if (!valid(id)) { await cleanup(epoch); return; }
       if (!await ready.promise || !valid(id)) return;
       publish({ status: "preparing" });
+      if (scenery.image && scenery.imageName) {
+        // A connection snapshot can arrive before set_image. Only a state
+        // emitted after this point may confirm the selected reference image.
+        imageReady = signal();
+        const result = await transport.prepareImage({ url: scenery.image, name: scenery.imageName });
+        if (!valid(id)) return;
+        if (result) onMessage(result);
+        if (!await imageReady.promise || !valid(id)) return;
+      }
       if (!await command("set_seed", { seed: options.seed ?? 0 }, id)) return;
-      if (!await command("set_audio_prompt", { prompt: AUDIO_PROMPT }, id)) return;
+      if (!await command("set_audio_prompt", { prompt: scenery.audioPrompt }, id)) return;
       // Install conditions signal before dispatch: replies may arrive synchronously.
       await sendPrompt(scenePrompt(0), `${options.mode}:opening`, null, id);
       if (!valid(id) || !await conditions.promise || !valid(id)) return;
@@ -233,6 +248,7 @@ export function createExperienceController(transport: ExperienceTransport, clock
     if (!active) return;
     const message = unwrapOrbisMessage(raw);
     if (!message?.type) return;
+    if (message.type === "state" && message.has_image === true) imageReady.resolve(true);
     if (message.type === "conditions_ready") conditions.resolve(true);
     if (message.type === "prompt_accepted") {
       const index = snapshot.promptLog.findIndex((entry) => entry.outcome === "pending" && (typeof message.prompt !== "string" || entry.text === message.prompt));
@@ -241,6 +257,10 @@ export function createExperienceController(transport: ExperienceTransport, clock
     if (message.type === "command_error") {
       // Provider payloads can contain connection details. Keep them out of the patient UI.
       void finish("fallback", "The live scene could not apply an update. You can continue with the calm preview.");
+      return;
+    }
+    if (message.type === "generation_started" && getScenery(snapshot.sceneId).image && message.image_conditioned === false) {
+      void finish("fallback", "The live scene started without the selected image. The local reference view is still available.");
       return;
     }
     if (message.type === "generation_started" || message.type === "generation_resumed" || message.type === "state" && message.started === true) confirmRunning();
@@ -276,6 +296,9 @@ export function createExperienceController(transport: ExperienceTransport, clock
     dispose: () => { void finish("stopped"); },
     setGuide: (enabled: boolean) => publish({ guideEnabled: enabled }),
     setMotion: (motion: ExperienceMotion) => publish({ motion }),
+    setScene: (sceneId: SceneryId) => {
+      if (!active && !snapshot.cleanupPending) publish({ sceneId: getScenery(sceneId).id });
+    },
     onTransportStatus, onMessage, onError,
   };
 }

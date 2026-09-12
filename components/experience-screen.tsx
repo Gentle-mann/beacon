@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useId, type CSSProperties, type ReactNode } from "react";
+import Image from "next/image";
+import { memo, useId, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import type { ExperienceSnapshot } from "@/lib/experience-controller";
 import { ARC_DURATION_MS, integratedBreathCycles, promptAt } from "@/lib/entrainment";
+import { SCENERIES, getScenery, type SceneryId } from "@/lib/sceneries";
 
 export type ExperienceScreenProps = {
   state: ExperienceSnapshot;
@@ -17,6 +19,7 @@ export type ExperienceScreenProps = {
   onStop(): void;
   onGuide(enabled: boolean): void;
   onMotion(motion: "gentle" | "still"): void;
+  onScene(sceneId: SceneryId): void;
   onManualBpm(bpm: number): void;
   onMicStart(): void;
   onMicStop(): void;
@@ -61,7 +64,7 @@ const LagoonIllustration = memo(function LagoonIllustration() {
   </div>;
 });
 
-function headingFor(state: ExperienceSnapshot) {
+function headingFor(state: ExperienceSnapshot, sceneryDescription: string) {
   if (state.status === "stopping") return { title: "A gentle close.", description: "Closing live session…" };
   if (state.cleanupPending) return { title: "Let’s finish closing.", description: "Session closure is not confirmed. Select Retry Stop below." };
   switch (state.status) {
@@ -72,13 +75,14 @@ function headingFor(state: ExperienceSnapshot) {
     case "stopped": return { title: "At your own pace.", description: "Your session has stopped. Begin again whenever you like." };
     case "fallback": return { title: "There is still space to settle.", description: "The live scene is unavailable. This quiet local view is here for you." };
     case "running": return { title: "Nothing to do. Just be here.", description: "Breathe in whatever way feels comfortable." };
-    default: return { title: "A little space\nto settle.", description: "A quiet shore. A moment to yourself.\nNinety seconds, entirely at your pace." };
+    default: return { title: "A little space\nto settle.", description: `${sceneryDescription}\nNinety seconds, entirely at your pace.` };
   }
 }
 
 /** Presentational patient surface. Session creation, cleanup and audio stay with the controller. */
 export function ExperienceScreen(props: ExperienceScreenProps) {
   const { state, sourceBpm, sourceMode, micStatus } = props;
+  const scenery = getScenery(state.sceneId);
   const busy = ["connecting", "preparing", "running", "recovering", "stopping"].includes(state.status);
   const closureUnconfirmed = state.cleanupPending && state.status !== "stopping";
   const running = state.status === "running";
@@ -87,18 +91,34 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
   const fallback = state.status === "fallback" || state.status === "recovering";
   const elapsed = Math.min(ARC_DURATION_MS, Math.max(0, state.elapsedMs));
   const remaining = Math.ceil((ARC_DURATION_MS - elapsed) / 1000);
-  const heading = headingFor(state);
+  const heading = headingFor(state, scenery.description);
   const phase = promptAt(state.startBpm, elapsed).phase;
   const cycle = integratedBreathCycles(state.startBpm, elapsed) % 1;
   const swell = (1 - Math.cos(cycle * Math.PI * 2)) / 2;
   const guideStyle = { "--guide-scale": String(.82 + swell * .18) } as CSSProperties;
   const micActive = micStatus === "listening" || micStatus === "requesting";
   const badge = liveVisible ? "Live scene" : state.status === "recovering" ? "Reconnecting · local view" : fallback ? "Calm fallback" : "Local preview";
-  const origin = liveVisible ? "Live generated environment" : fallback ? "Local illustration · live video unavailable" : "Local illustration · no generated video";
+  const origin = liveVisible
+    ? `${scenery.label} · live generated environment`
+    : fallback
+      ? `${scenery.label} · local view while live video is unavailable`
+      : scenery.image
+        ? `${scenery.label} · local reference image`
+        : `${scenery.label} · local illustration`;
+  function moveScene(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+    const next = event.key === "Home" ? 0 : event.key === "End" ? SCENERIES.length - 1 : direction ? (index + direction + SCENERIES.length) % SCENERIES.length : index;
+    if (!direction && event.key !== "Home" && event.key !== "End") return;
+    event.preventDefault();
+    props.onScene(SCENERIES[next].id);
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
+  }
 
-  return <main className={`experience-screen ${running ? "experience-is-running" : ""} ${busy || state.cleanupPending ? "experience-is-active" : ""}`} data-motion={state.motion} data-live-visible={liveVisible}>
+  return <main className={`experience-screen ${running ? "experience-is-running" : ""} ${busy || state.cleanupPending ? "experience-is-active" : ""}`} data-motion={state.motion} data-live-visible={liveVisible} data-reference-image={Boolean(scenery.image)}>
     <div className="experience-scene">
-      <LagoonIllustration />
+      {scenery.image
+        ? <Image className="experience-scene-image" src={scenery.image} alt="" fill sizes="100vw" priority />
+        : <LagoonIllustration />}
       {/* Keep the actual player mounted through preparation so it can deliver its first-frame event. */}
       <div className="experience-live-video" aria-hidden={!liveVisible} inert={!liveVisible} style={{ opacity: liveVisible ? 1 : 0 }}>{props.video}</div>
       <div className="experience-shade" />
@@ -116,13 +136,34 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
       {running && state.guideEnabled ? <div className="experience-guide">
         <div className="experience-guide-orb" style={guideStyle} aria-hidden="true"><div /></div>
         <div className="experience-guide-copy"><span className="experience-overline">An optional rhythm</span><h1>{phase === "inhale" ? "Breathe in" : "Breathe out"}</h1><p>Only follow along if it feels comfortable.</p></div>
-      </div> : <div className="experience-intro"><span className="experience-overline">{running ? "This time is yours" : "A quiet moment, by the water"}</span><h1>{heading.title}</h1><p>{heading.description}</p></div>}
+      </div> : <div className="experience-intro"><span className="experience-overline">{running ? "This time is yours" : `A quiet moment · ${scenery.label}`}</span><h1>{heading.title}</h1><p>{heading.description}</p></div>}
       {(state.cleanupPending || state.status === "connecting" || state.status === "preparing" || state.status === "recovering") ? <div className="experience-connection" role="status" data-retry={closureUnconfirmed}><span aria-hidden="true" />{closureUnconfirmed ? "Session closure not confirmed" : state.cleanupPending ? "Closing live session…" : state.status === "recovering" ? "Reconnecting" : "Preparing live scene"}</div> : null}
     </section>
 
     <div className="experience-bottom">
       <div className="experience-scene-caption"><span>{origin}</span><span>Stay as you are. Stop whenever you want.</span></div>
       <section className="experience-controls" aria-label="Session controls">
+        <div className="experience-scenery-picker">
+          <div className="experience-scenery-heading"><span className="experience-overline">Choose your scenery</span><span>{busy ? `${scenery.label} is set for this moment` : scenery.description}</span></div>
+          <div className="experience-scenery-options" role="radiogroup" aria-label="Choose your scenery">
+            {SCENERIES.map((option, index) => <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={option.id === scenery.id}
+              tabIndex={option.id === scenery.id ? 0 : -1}
+              aria-label={`${option.label}: ${option.description}`}
+              disabled={busy || state.cleanupPending}
+              onClick={() => props.onScene(option.id)}
+              onKeyDown={(event) => moveScene(event, index)}
+            >
+              <span className={`experience-scenery-thumb ${option.image ? "" : "experience-scenery-thumb-lagoon"}`} aria-hidden="true">
+                {option.image ? <Image src={option.image} alt="" fill sizes="96px" /> : <span />}
+              </span>
+              <span>{option.shortLabel}</span>
+            </button>)}
+          </div>
+        </div>
         <div className="experience-control-main">
           <div className="experience-session-description">
             <span className="experience-overline">{running ? "Your moment is unfolding" : state.status === "completed" ? "A little pause, complete" : "Make yourself comfortable"}</span>

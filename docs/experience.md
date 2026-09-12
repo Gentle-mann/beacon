@@ -12,6 +12,25 @@ controller as live mode. It does not mint a token, load the Reactor SDK, create
 a provider session, or produce generated video/audio. The optional microphone
 processes audio locally and uploads nothing.
 
+The scenery chooser includes the original lagoon plus eight generated 16:9
+reference images. The selected card changes the honest local preview. In live
+mode, the selected image is fetched from the app, uploaded through the scoped
+Reactor client, passed to `set_image`, and confirmed by `image_accepted` plus
+`state.has_image` before scene setup continues. An explicit
+`generation_started.image_conditioned: false` falls back to the local view.
+
+| Scenery | Breathing-driven movement |
+|---|---|
+| Quiet lagoon | Water swells widen and settle |
+| Silk pavilion | Curtain folds become longer, slower billows |
+| Sea of clouds | Cloud lifts spread into broad, quiet cycles |
+| Golden grassland | Short waves grow into wide coordinated bands |
+| Living desert | Fine sand ribbons soften into broad dune ripples |
+| Aurora horizon | Narrow light folds become wide, slow arcs |
+| Jellyfish sanctuary | Frequent pulses become slow expansion and release |
+| Cathedral of mist | Small currents become broad movement through the arches |
+| Floating ink world | Small blooms become broad, slowly dissolving clouds |
+
 The guide is off by default. Starting captures the manual or estimated BPM
 once, stops the microphone, and locks that pace for this run. Manual changes
 during a run apply next time. The mic cannot be restarted during a run. Guide
@@ -64,14 +83,18 @@ connection may end the generated scene before the application arc finishes.
 
 1. Create one token/client and connect. Subscribe to events before connecting so
    early session IDs and synchronous replies are not lost.
-2. Wait for transport `ready`; send the locked seed, canonical audio prompt and
-   opening scene; wait for `conditions_ready` before dispatching `start`.
+2. Wait for transport `ready`; for a reference scene, upload and apply its image
+   and wait for `state.has_image`. Then send the locked seed, scene-specific
+   audio prompt and opening scene; wait for `conditions_ready` before
+   dispatching `start`.
 3. Start the 90-second deadline immediately before dispatch. Only model
    `generation_started`, resumed generation, or `state.started` confirms
    running. The live badge additionally requires emitted frames and browser
    playback. A command promise resolving is not proof of success.
-4. Send through `buildPrompt` every second valid, forward `chunk_complete`.
-   Ignore mirrored `state.current_chunk`. Preserve SETTING/CAMERA/CONTINUITY.
+4. Build the selected scenery prompt every second valid, forward
+   `chunk_complete`. Ignore mirrored `state.current_chunk`. Preserve that
+   scenery's SETTING/CAMERA/CONTINUITY while target BPM selects its active,
+   steady, or settled motion clause and the optional guide adds its phase.
    Serialize prompts and retain only the latest pending one. In-memory prompt
    entries distinguish preview/live and record timestamp and acknowledgement;
    the separate workbench exports its simulated trace.

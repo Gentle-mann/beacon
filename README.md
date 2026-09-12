@@ -4,9 +4,10 @@ A short, patient-controlled comfort experience: a quiet environment, optional
 breathing guide, and an always-reachable Stop button. Built on Visko Orbis
 Stable (Reactor) for the Live Models Hackathon.
 
-The current experience is bounded to 90 seconds. It starts with a local lagoon
-preview and can connect to generated video using the team's selected seed,
-2026. The patient prompts still need live validation. Breathing guidance is off by default; the user can choose a
+The current experience is bounded to 90 seconds. It offers a lagoon plus eight
+reference-image sceneries and can connect to generated video using the team's
+selected seed, 2026. The patient prompts and reference-image runs still need
+live validation. Breathing guidance is off by default; the user can choose a
 starting pace or estimate one locally with a microphone. This prototype does
 not establish respiratory synchronization, clinical benefit, or suitability
 for an entire procedure.
@@ -121,14 +122,22 @@ locally. That policy still needs its own live acceptance run.
 
 Open **http://localhost:3000/** for the patient experience. **Start preview**
 runs the full 90-second flow without creating a model session. The local
-illustration is labelled honestly; a live label requires both model frames and
-browser video playback. Start captures the current pace and turns the mic off.
+illustration or reference image is labelled honestly; a live label requires
+both model frames and browser video playback. Choose from lagoon, silk pavilion,
+sea of clouds, golden grassland, living desert, aurora horizon, jellyfish
+sanctuary, cathedral of mist, and floating ink world. Start captures the current
+pace and turns the mic off.
 Stop, hiding the page, and the original deadline close a live run. Recovery
 reattaches the same session and never extends that deadline or creates a fresh
 session. Failed cleanup blocks another start and offers Retry Stop.
 
 The guide uses the starting BPM and elapsed time. It does **not** continuously
 react to new microphone measurements or detect actual inhale/exhale phases.
+Every scene maps the scheduled target rate to its own movement: quicker starts
+use shorter intervals, the ramp widens and slows the movement, and the optional
+guide adds scene-specific inhale/exhale wording. For a live reference scene,
+the client uploads the selected local image and waits for both `image_accepted`
+and `state.has_image` before sending seed, audio, prompt, and Start.
 
 The live token requests one session and a provider-side 120-second duration
 limit, alongside the application's 90-second arc and 30-second startup timeout.

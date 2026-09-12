@@ -78,7 +78,8 @@ export function BeaconExperience() {
     // The source is captured once; close the mic before live scenery/audio starts.
     breath.stopMic();
     setMediaPlaying(false);
-    void runtime.controller.start({ mode, seed: mode === "live" ? config.lockedSeed : null, startBpm });
+    const sceneId = runtime.controller.getSnapshot().sceneId;
+    void runtime.controller.start({ mode, seed: mode === "live" ? config.lockedSeed : null, startBpm, sceneId });
   }
   return <ExperienceScreen
     state={state.mode === "live" ? { ...state, framesSeen: state.framesSeen && mediaPlaying } : state}
@@ -92,6 +93,7 @@ export function BeaconExperience() {
     onStop={() => { breath.stopMic(); void runtime.controller.stop(); }}
     onGuide={runtime.controller.setGuide}
     onMotion={runtime.controller.setMotion}
+    onScene={runtime.controller.setScene}
     onManualBpm={breath.setManualBpm}
     onMicStart={() => {
       const current = runtime.controller.getSnapshot();
@@ -106,6 +108,6 @@ export function BeaconExperience() {
       if (current.mode === "live" && current.status === "running") runtime.controller.onTransportStatus("waiting");
     }} onError={() => {
       if (runtime.controller.getSnapshot().mode === "live") runtime.controller.onError("The video could not play. The calm preview is still available.");
-    }} aria-label="Live lagoon video" />}
+    }} aria-label={`Live ${state.sceneId} video`} />}
   />;
 }
