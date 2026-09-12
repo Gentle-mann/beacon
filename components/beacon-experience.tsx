@@ -73,25 +73,33 @@ export function BeaconExperience() {
     if (["completed", "stopped", "fallback"].includes(state.status)) breath.stopMic();
   }, [state.status, breath.stopMic]);
 
+  useEffect(() => {
+    if (state.status !== "running" || breath.micStatus !== "listening" || breath.snapshot.mode !== "mic") return;
+    const response = patientSignalForBpm(breath.snapshot.bpm);
+    runtime.controller.setMotion(response.motion);
+    runtime.controller.setScene(response.sceneId);
+  }, [state.status, breath.micStatus, breath.snapshot.mode, breath.snapshot.bpm, runtime]);
+
   function start(mode: ExperienceMode) {
     if (mode === "live" && !config.liveEnabled) return;
     const startBpm = breath.source.getStableBpm();
     const response = patientSignalForBpm(startBpm);
     runtime.controller.setScene(response.sceneId);
-    // The source is captured once; close the mic before live scenery/audio starts.
-    breath.stopMic();
+    runtime.controller.setMotion(response.motion);
+    if (breath.micStatus === "off") void breath.startMic();
     setMediaPlaying(false);
     void runtime.controller.start({ mode, seed: mode === "live" ? config.lockedSeed : null, startBpm, sceneId: response.sceneId });
   }
   function setPatientSignal(signalId: PatientSignalId) {
     const signal = PATIENT_SIGNALS.find((option) => option.id === signalId) ?? PATIENT_SIGNALS[1];
     breath.setManualBpm(signal.bpm);
-    runtime.controller.setScene(signal.sceneId);
     runtime.controller.setMotion(signal.motion);
+    runtime.controller.setScene(signal.sceneId);
   }
   function setManualBpm(bpm: number) {
     breath.setManualBpm(bpm);
     const response = patientSignalForBpm(bpm);
+    runtime.controller.setMotion(response.motion);
     runtime.controller.setScene(response.sceneId);
   }
   return <ExperienceScreen
@@ -101,7 +109,7 @@ export function BeaconExperience() {
     sourceBpm={breath.snapshot.bpm}
     sourceMode={breath.snapshot.mode}
     micStatus={breath.micStatus}
-    micMessage={breath.message || (breath.micStatus === "listening" ? breath.snapshot.mode === "mic" ? "Using a rough microphone estimate." : "Listening for steady breaths. Manual pace is active until there is a usable estimate." : "")}
+    micMessage={breath.message || (breath.micStatus === "listening" ? breath.snapshot.mode === "mic" ? `${breath.snapshot.bpm.toFixed(1)} BPM detected. The scene responds as your pace changes.` : "Listening for steady breaths. The current scene stays in place until there is a usable estimate." : "")}
     onStart={start}
     onStop={() => { breath.stopMic(); void runtime.controller.stop(); }}
     onGuide={runtime.controller.setGuide}
@@ -110,7 +118,7 @@ export function BeaconExperience() {
     onManualBpm={setManualBpm}
     onMicStart={() => {
       const current = runtime.controller.getSnapshot();
-      if (!current.cleanupPending && ["idle", "completed", "stopped", "fallback"].includes(current.status)) void breath.startMic();
+      if (!current.cleanupPending && !["connecting", "preparing", "stopping"].includes(current.status)) void breath.startMic();
     }}
     onMicStop={breath.stopMic}
     muted={muted}

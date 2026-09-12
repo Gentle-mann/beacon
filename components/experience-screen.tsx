@@ -56,6 +56,7 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
   const { state, sourceBpm, sourceMode, micStatus } = props;
   const scenery = getScenery(state.sceneId);
   const busy = ["connecting", "preparing", "running", "recovering", "stopping"].includes(state.status);
+  const signalLocked = ["connecting", "preparing", "stopping"].includes(state.status) || state.cleanupPending;
   const closureUnconfirmed = state.cleanupPending && state.status !== "stopping";
   const running = state.status === "running";
   const canStart = !busy && !state.cleanupPending;
@@ -105,14 +106,14 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
       <div className="experience-scene-caption"><span>{origin}</span><span>Stay as you are. Stop whenever you want.</span></div>
       <section className="experience-controls" aria-label="Session controls">
         <div className="experience-signal-picker">
-          <div className="experience-signal-heading"><span className="experience-overline">Demo patient signal</span><span>{busy ? `${patientSignal.response} is set for this moment` : "Choose a breathing pattern to see Beacon respond."}</span></div>
+          <div className="experience-signal-heading"><span className="experience-overline">Patient signal</span><span>{running ? `${sourceMode === "mic" ? "Live breathing estimate" : "Demo override"}: ${patientSignal.response}` : "Choose a pattern, or let the microphone update it during the session."}</span></div>
           <div className="experience-signal-options" role="radiogroup" aria-label="Demo patient signal">
             {PATIENT_SIGNALS.map((signal) => <button
               key={signal.id}
               type="button"
               role="radio"
               aria-checked={signal.id === patientSignal.id}
-              disabled={busy || state.cleanupPending}
+              disabled={signalLocked}
               onClick={() => props.onPatientSignal(signal.id)}
               aria-label={`${signal.label}, ${signal.bpm} breaths per minute: ${signal.response}`}
             >
@@ -144,10 +145,10 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
           <span className="experience-sound-note">{props.muted ? "Sound off" : liveVisible ? "Sound on" : "Local preview is silent"}</span>
         </div>
         <details className="experience-personalize">
-          <summary>Choose a starting pace <span aria-hidden="true">+</span></summary>
+          <summary>Patient signal input <span aria-hidden="true">+</span></summary>
           <div className="experience-personalize-content">
-            <div className="experience-pace"><label htmlFor="experience-manual-bpm">Starting pace <output>{sourceBpm.toFixed(1)} <span>breaths / min</span></output></label><input id="experience-manual-bpm" type="range" min="4" max="20" step=".5" value={sourceBpm} onChange={(event) => props.onManualBpm(Number(event.target.value))} /><div className="experience-range-labels"><span>Slower · 4</span><span>20 · Faster</span></div><p>{busy ? "Changes apply to your next moment." : "The guide begins at this pace. You can always breathe naturally."}</p></div>
-            <div className="experience-mic"><span className="experience-mic-label">{sourceMode === "mic" ? "Microphone estimate" : "Manual pace selected"}</span><p>{busy || state.cleanupPending ? "Set up the microphone before your next session. You can stop an active microphone at any time." : "Optionally use your microphone to estimate a starting pace. Audio stays on this device."}</p><div className="experience-mic-actions">{micActive ? <button type="button" className="experience-text-button" onClick={props.onMicStop}>{micStatus === "requesting" ? "Cancel microphone" : "Stop microphone"}</button> : <button type="button" className="experience-text-button" onClick={props.onMicStart} disabled={busy || state.cleanupPending}>Use microphone</button>}<span role="status">{props.micMessage || (micStatus === "requesting" ? "Waiting for permission…" : micStatus === "listening" ? "Listening locally" : "Microphone off")}</span></div></div>
+            <div className="experience-pace"><label htmlFor="experience-manual-bpm">Breathing pace <output>{sourceBpm.toFixed(1)} <span>breaths / min</span></output></label><input id="experience-manual-bpm" type="range" min="4" max="20" step=".5" value={sourceBpm} onChange={(event) => props.onManualBpm(Number(event.target.value))} /><div className="experience-range-labels"><span>Slower · 4</span><span>20 · Faster</span></div><p>{running ? "Changes update the scene. The optional guide keeps the rhythm captured at Start." : "The guide begins at this pace. You can always breathe naturally."}</p></div>
+            <div className="experience-mic"><span className="experience-mic-label">{sourceMode === "mic" ? "Live microphone estimate" : "Manual pace selected"}</span><p>{running ? "The microphone can estimate breathing throughout this session and switch the scene automatically. Audio stays on this device." : "Use your microphone to let breathing estimates update the scene during the session. Audio stays on this device."}</p><div className="experience-mic-actions">{micActive ? <button type="button" className="experience-text-button" onClick={props.onMicStop}>{micStatus === "requesting" ? "Cancel microphone" : "Stop microphone"}</button> : <button type="button" className="experience-text-button" onClick={props.onMicStart} disabled={signalLocked}>Use microphone</button>}<span role="status">{props.micMessage || (micStatus === "requesting" ? "Waiting for permission…" : micStatus === "listening" ? "Listening locally" : "Microphone off")}</span></div></div>
           </div>
         </details>
       </section>

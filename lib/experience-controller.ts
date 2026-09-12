@@ -297,7 +297,13 @@ export function createExperienceController(transport: ExperienceTransport, clock
     setGuide: (enabled: boolean) => publish({ guideEnabled: enabled }),
     setMotion: (motion: ExperienceMotion) => publish({ motion }),
     setScene: (sceneId: SceneryId) => {
-      if (!active && !snapshot.cleanupPending) publish({ sceneId: getScenery(sceneId).id });
+      if (snapshot.cleanupPending || active && !["running", "recovering"].includes(snapshot.status)) return;
+      const nextSceneId = getScenery(sceneId).id;
+      if (snapshot.sceneId === nextSceneId) return;
+      publish({ sceneId: nextSceneId });
+      if (active && snapshot.status === "running" && rawStatus === "ready") {
+        void sendPrompt(scenePrompt(currentElapsed()), `${snapshot.mode}:signal`, null, epoch);
+      }
     },
     onTransportStatus, onMessage, onError,
   };

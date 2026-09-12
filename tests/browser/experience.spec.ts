@@ -12,7 +12,7 @@ const unavailable = {
 const startPreview = (page: Page) => page.getByRole("button", { name: "Start preview" });
 const stopSession = (page: Page) => page.getByRole("button", { name: "Stop session", exact: true });
 const guide = (page: Page) => page.getByRole("switch", { name: /Breathing guide/ });
-const pace = (page: Page) => page.getByRole("slider", { name: /Starting pace/ });
+const pace = (page: Page) => page.getByRole("slider", { name: /Breathing pace/ });
 
 test.beforeEach(async ({ page }) => {
   const forbidden: string[] = [];
@@ -78,9 +78,9 @@ test("live is disabled by default and a local preview completes at 90 seconds th
   await expect(page.getByRole("heading", { name: "At your own pace." })).toBeVisible();
 });
 
-test("patient signals choose distinct responses and stay locked during a session", async ({ page }) => {
+test("patient signals choose distinct responses and remain available during a session", async ({ page }) => {
   await page.goto("/");
-  await page.getByText("Choose a starting pace", { exact: false }).click();
+  await page.getByText("Patient signal input", { exact: false }).click();
   const faster = page.getByRole("radio", { name: /^Faster breathing/ });
   const baseline = page.getByRole("radio", { name: /^Baseline breathing/ });
   await faster.click();
@@ -92,8 +92,15 @@ test("patient signals choose distinct responses and stay locked during a session
   await expect(baseline).toHaveAttribute("aria-checked", "true");
   await expect(pace(page)).toHaveValue("12");
   await startPreview(page).click();
-  await expect(faster).toBeDisabled();
-  await expect(baseline).toBeDisabled();
+  await expect(faster).toBeEnabled();
+  await faster.click();
+  await expect(faster).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(".experience-scene-image")).toHaveAttribute("src", /protective-still-lake/);
+  await expect(page.locator("main")).toHaveAttribute("data-motion", "still");
+  await baseline.click();
+  await expect(baseline).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(".experience-scene-image")).toHaveAttribute("src", /willow-breeze/);
+  await expect(page.locator("main")).toHaveAttribute("data-motion", "gentle");
   await stopSession(page).click();
   await expect(faster).toBeEnabled();
 });
@@ -114,10 +121,10 @@ test("Stop ends preview immediately and later timer ticks cannot revive the scen
   await expect(page.getByRole("heading", { name: /^Breathe (in|out)$/ })).toHaveCount(0);
 });
 
-test("guide, motion and manual pace expose keyboard controls and capture pace for the current moment", async ({ page }) => {
+test("guide, motion and manual pace stay keyboard accessible while the scene responds", async ({ page }) => {
   await page.clock.install();
   await page.goto("/");
-  const details = page.getByText("Choose a starting pace", { exact: false });
+  const details = page.getByText("Patient signal input", { exact: false });
   await details.focus();
   await details.press("Enter");
   await pace(page).press("Home");
@@ -136,7 +143,7 @@ test("guide, motion and manual pace expose keyboard controls and capture pace fo
   await expect(page.getByRole("heading", { name: "Breathe in", exact: true })).toBeVisible();
   await pace(page).press("End");
   await expect(pace(page)).toHaveValue("20");
-  await expect(page.getByText("Changes apply to your next moment.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Changes update the scene. The optional guide keeps the rhythm captured at Start.", { exact: true })).toBeVisible();
   await page.clock.runFor(6_000);
   // The captured 4 BPM has a 7.5s inhale; the new 20 BPM applies next time.
   await expect(page.getByRole("heading", { name: "Breathe in", exact: true })).toBeVisible();
@@ -150,7 +157,7 @@ test("guide, motion and manual pace expose keyboard controls and capture pace fo
 
 test("denied microphone permission leaves manual pace and preview usable", async ({ page }) => {
   await page.goto("/");
-  await page.getByText("Choose a starting pace", { exact: false }).click();
+  await page.getByText("Patient signal input", { exact: false }).click();
   await page.getByRole("button", { name: "Use microphone", exact: true }).click();
   await expect(page.locator(".experience-mic-actions").getByRole("status")).toContainText("Microphone permission was denied");
   await expect(page.getByText("Manual pace selected", { exact: true })).toBeVisible();
@@ -159,7 +166,7 @@ test("denied microphone permission leaves manual pace and preview usable", async
   await startPreview(page).click();
   await expect(stopSession(page)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Nothing to do. Just be here." })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Use microphone", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Use microphone", exact: true })).toBeEnabled();
   await stopSession(page).click();
   await expect(page.getByRole("button", { name: "Use microphone", exact: true })).toBeEnabled();
 });
@@ -178,7 +185,7 @@ test("configuration failure still offers a usable local preview", async ({ page 
 test("mobile controls fit at 375px and Stop stays reachable after scrolling", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");
-  await page.getByText("Choose a starting pace", { exact: false }).click();
+  await page.getByText("Patient signal input", { exact: false }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await startPreview(page).click();
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));

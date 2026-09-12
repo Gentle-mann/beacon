@@ -140,6 +140,17 @@ test("only unique real chunk events drive prompts, and scene preferences preserv
   assert.match(String(prompts.at(-1)!.data.prompt), /almost still/);
 });
 
+test("a running session accepts a new patient scene for the next generated prompt", async () => {
+  const f = fixture(); await f.start("willow-breeze");
+  f.controller.setScene("still-lake");
+  assert.equal(f.controller.getSnapshot().sceneId, "still-lake");
+  f.controller.onMessage({ type: "chunk_complete", chunk_index: 0, frames_emitted: 33 });
+  f.controller.onMessage({ type: "chunk_complete", chunk_index: 1, frames_emitted: 33 });
+  await flush();
+  const prompts = f.commands.filter((command) => command.name === "set_prompt");
+  assert.match(String(prompts.at(-1)!.data.prompt), /mist-covered mountain lake/i);
+});
+
 test("Stop invalidates a late connection so it can never arm or start", async () => {
   const f = fixture(); const connecting = deferred<void>();
   f.transport.connect = () => connecting.promise;
