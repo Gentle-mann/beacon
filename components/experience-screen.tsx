@@ -27,6 +27,7 @@ export type ExperienceScreenProps = {
   onToggleMuted(): void;
   video: ReactNode;
   ambientAudio: ReactNode;
+  breathMonitor: ReactNode;
 };
 
 function BeaconMark() {
@@ -114,7 +115,7 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
       <div className="experience-scene-caption"><span>{origin}</span><span>Stay as you are. Stop whenever you want.</span></div>
       <section className="experience-controls" aria-label="Session controls">
         <div className="experience-signal-picker">
-          <div className="experience-signal-heading"><span className="experience-overline">Patient signal</span><span>{running ? `${sourceMode === "mic" ? "Live breathing estimate" : "Demo override"}: ${patientSignal.response}` : "Choose a pattern, or let the microphone update it during the session."}</span></div>
+          <div className="experience-signal-heading">{props.breathMonitor}<span>{running ? `${sourceMode === "mic" ? "Live estimate" : "Demo override"}: ${patientSignal.response}` : "Choose a pattern, or start the microphone."}</span></div>
           <div className="experience-signal-options" role="radiogroup" aria-label="Demo patient signal">
             {PATIENT_SIGNALS.map((signal) => <button
               key={signal.id}

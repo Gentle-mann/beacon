@@ -3,7 +3,7 @@ import test from "node:test";
 import { GET as getConfig } from "../app/api/experience/config/route";
 import { POST as mintToken } from "../app/api/experience/token/route";
 import { POST as stopSession } from "../app/api/experience/stop/route";
-import { getExperienceConfig } from "../lib/experience-api.server";
+import { getExperienceConfig, isSameOriginExperienceRequest } from "../lib/experience-api.server";
 import { fakeJwt } from "./fixtures";
 
 const ORIGIN = "http://127.0.0.1:3100";
@@ -166,6 +166,22 @@ test("all routes reject cross-origin requests before touching the provider", asy
     assert.equal((await mintToken(new Request(`${ORIGIN}/api/experience/token`, { method: "POST" }))).status, 403);
     assert.equal(provider.mock.callCount(), 0);
   });
+});
+
+test("same-origin checks use the browser-facing Host when Next normalizes request.url", () => {
+  const request = new Request("http://localhost:3100/api/experience/token", {
+    method: "POST",
+    headers: {
+      Host: "127.0.0.1:3100",
+      Origin: "http://127.0.0.1:3100",
+      "Sec-Fetch-Site": "same-origin",
+    },
+  });
+  assert.equal(isSameOriginExperienceRequest(request), true);
+  assert.equal(isSameOriginExperienceRequest(new Request(request.url, {
+    method: "POST",
+    headers: { Host: "127.0.0.1:3100", Origin: "https://127.0.0.1:3100", "Sec-Fetch-Site": "same-origin" },
+  })), false);
 });
 
 test("stop deletes only the named session using the caller JWT and never the account key", async (t) => {
