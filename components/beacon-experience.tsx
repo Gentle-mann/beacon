@@ -77,11 +77,13 @@ export function BeaconExperience() {
   }, [state.status, breath.stopMic]);
 
   useEffect(() => {
-    if (state.status !== "running" || breath.micStatus !== "listening" || breath.snapshot.mode !== "mic") return;
-    const response = patientSignalForBpm(breath.snapshot.bpm);
+    if (state.status !== "running" || breath.micStatus !== "listening") return;
+    // Use the immediate airflow latch for the visible demo response. The
+    // stable BPM remains available for the numeric readout and guide.
+    const response = breath.activity === "active" ? PATIENT_SIGNALS[0] : PATIENT_SIGNALS[1];
     runtime.controller.setMotion(response.motion);
     runtime.controller.setScene(response.sceneId);
-  }, [state.status, breath.micStatus, breath.snapshot.mode, breath.snapshot.bpm, runtime]);
+  }, [state.status, breath.micStatus, breath.activity, runtime]);
 
   useEffect(() => {
     const audio = ambientAudio.current;
@@ -138,7 +140,7 @@ export function BeaconExperience() {
     muted={muted}
     onToggleMuted={() => setMuted((current) => !current)}
     ambientAudio={<audio ref={ambientAudio} src={getScenery(state.sceneId).previewAudio} loop preload="auto" muted={muted} aria-label="Ambient scene sound" />}
-    breathMonitor={<PatientBreathTrace bpm={breath.snapshot.bpm} sourceMode={breath.snapshot.mode} micStatus={breath.micStatus} reading={breath.reading} waveform={breath.waveform} />}
+    breathMonitor={<PatientBreathTrace bpm={breath.snapshot.bpm} sourceMode={breath.snapshot.mode} micStatus={breath.micStatus} reading={breath.reading} activity={breath.activity} waveform={breath.waveform} />}
     video={<video ref={video} autoPlay playsInline muted={muted} onPlaying={() => setMediaPlaying(true)} onWaiting={() => setMediaPlaying(false)} onStalled={() => {
       setMediaPlaying(false);
       const current = runtime.controller.getSnapshot();
