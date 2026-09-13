@@ -97,7 +97,11 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
     <div className="experience-scene">
       <Image className="experience-scene-image experience-scene-base" src={scenery.image} alt="" fill sizes="100vw" priority />
       <div className="experience-scene-alive" aria-hidden="true">
-        <Image className="experience-scene-image experience-scene-echo" src={scenery.image} alt="" fill sizes="100vw" />
+        {scenery.id === "willow-breeze" ? <>
+          <Image className="experience-scene-image experience-willow-layer experience-willow-layer-back" src={scenery.image} alt="" fill sizes="100vw" />
+          <Image className="experience-scene-image experience-willow-layer experience-willow-layer-middle" src={scenery.image} alt="" fill sizes="100vw" />
+          <Image className="experience-scene-image experience-willow-layer experience-willow-layer-front" src={scenery.image} alt="" fill sizes="100vw" />
+        </> : null}
         <span className="experience-cloud-drift" />
         <span className="experience-light-drift" />
       </div>

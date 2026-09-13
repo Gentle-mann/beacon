@@ -28,12 +28,16 @@
 .experience-scene-base { transform: scale(1.015); }
 .experience-scene-alive { overflow: hidden; opacity: 1; transition: opacity 1.5s ease; }
 .experience-screen[data-live-visible="true"] .experience-scene-alive { opacity: 0; }
-.experience-scene-echo { opacity: 0; will-change: transform, opacity; }
+.experience-willow-layer { opacity: 0; transform: scale(1.025); will-change: transform, opacity; pointer-events: none; }
+.experience-willow-layer-back { transform-origin: 14% 14%; -webkit-mask-image: radial-gradient(ellipse 78% 52% at 54% 13%, #000 23%, #000b 46%, transparent 72%); mask-image: radial-gradient(ellipse 78% 52% at 54% 13%, #000 23%, #000b 46%, transparent 72%); }
+.experience-willow-layer-middle { transform-origin: 22% 22%; -webkit-mask-image: radial-gradient(ellipse 58% 67% at 42% 31%, #000 18%, #000c 42%, transparent 72%); mask-image: radial-gradient(ellipse 58% 67% at 42% 31%, #000 18%, #000c 42%, transparent 72%); }
+.experience-willow-layer-front { transform-origin: 58% 17%; -webkit-mask-image: radial-gradient(ellipse 48% 68% at 76% 37%, #000 16%, #000c 40%, transparent 72%); mask-image: radial-gradient(ellipse 48% 68% at 76% 37%, #000 16%, #000c 40%, transparent 72%); }
 .experience-cloud-drift, .experience-light-drift { position: absolute; display: block; pointer-events: none; will-change: transform, opacity; }
 .experience-cloud-drift { inset: 2% -18% 42%; background: radial-gradient(ellipse at 24% 54%, #f5f0d326 0 9%, transparent 28%), radial-gradient(ellipse at 69% 37%, #eef2db20 0 8%, transparent 25%), linear-gradient(100deg, transparent 22%, #f8f3dd14 49%, transparent 71%); filter: blur(18px); animation: experience-clouds 34s ease-in-out infinite alternate; }
 .experience-light-drift { width: 34vw; height: 34vw; min-width: 260px; min-height: 260px; left: 38%; top: 18%; border-radius: 50%; background: radial-gradient(circle, #fff5c51a, transparent 66%); filter: blur(15px); animation: experience-sun-drift 19s ease-in-out infinite alternate; }
-.experience-screen[data-scene="willow-breeze"][data-motion="gentle"] .experience-scene-base { animation: experience-camera-breathe 22s ease-in-out infinite alternate; }
-.experience-screen[data-scene="willow-breeze"][data-motion="gentle"] .experience-scene-echo { opacity: .3; clip-path: polygon(7% 0, 92% 0, 79% 62%, 48% 69%, 20% 58%); transform-origin: 22% 10%; animation: experience-willow-sway 5.8s ease-in-out infinite alternate; }
+.experience-screen[data-scene="willow-breeze"][data-motion="gentle"] .experience-willow-layer-back { opacity: .48; animation: experience-willow-back 6.8s ease-in-out -2.1s infinite; }
+.experience-screen[data-scene="willow-breeze"][data-motion="gentle"] .experience-willow-layer-middle { opacity: .56; animation: experience-willow-middle 5.4s ease-in-out -.8s infinite; }
+.experience-screen[data-scene="willow-breeze"][data-motion="gentle"] .experience-willow-layer-front { opacity: .62; animation: experience-willow-front 4.6s ease-in-out -1.7s infinite; }
 .experience-screen[data-scene="still-lake"] .experience-cloud-drift { opacity: .38; animation-duration: 52s; }
 .experience-screen[data-scene="still-lake"] .experience-light-drift { opacity: .34; animation-duration: 31s; }
 .experience-ambient-audio { position: absolute; width: 1px; height: 1px; overflow: hidden; }
@@ -175,8 +179,9 @@
 .experience-screen[data-motion="still"] .experience-guide-orb { transform: none; transition: none; }
 @keyframes experience-water-drift { from { transform: translateY(-7px) scaleX(.96) rotate(-5deg); opacity: .2; } to { transform: translateY(8px) scaleX(1.04) rotate(-5deg); opacity: .55; } }
 @keyframes experience-soft-pulse { 0%, 100% { opacity: .35; } 50% { opacity: .95; } }
-@keyframes experience-camera-breathe { from { transform: scale(1.015) translate3d(0, 0, 0); } to { transform: scale(1.035) translate3d(-.25%, -.2%, 0); } }
-@keyframes experience-willow-sway { 0% { transform: scale(1.019) translate3d(-4px, 1px, 0) rotate(-.24deg); } 48% { transform: scale(1.021) translate3d(3px, -1px, 0) rotate(.16deg); } 100% { transform: scale(1.019) translate3d(7px, 1px, 0) rotate(.34deg); } }
+@keyframes experience-willow-back { 0%, 100% { transform: scale(1.025) translate3d(-10px, 2px, 0) rotate(-.45deg); } 50% { transform: scale(1.025) translate3d(12px, -2px, 0) rotate(.5deg); } }
+@keyframes experience-willow-middle { 0%, 100% { transform: scale(1.027) translate3d(-8px, 1px, 0) rotate(-.38deg); } 50% { transform: scale(1.027) translate3d(10px, 3px, 0) rotate(.44deg); } }
+@keyframes experience-willow-front { 0%, 100% { transform: scale(1.03) translate3d(-7px, -1px, 0) rotate(-.32deg); } 50% { transform: scale(1.03) translate3d(9px, 3px, 0) rotate(.38deg); } }
 @keyframes experience-clouds { from { transform: translate3d(-3%, 0, 0) scale(1); opacity: .26; } to { transform: translate3d(8%, 2%, 0) scale(1.08); opacity: .5; } }
 @keyframes experience-sun-drift { from { transform: translate3d(-3%, -2%, 0) scale(.95); opacity: .28; } to { transform: translate3d(5%, 3%, 0) scale(1.08); opacity: .55; } }
 @media (min-width: 1500px) {

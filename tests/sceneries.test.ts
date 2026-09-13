@@ -7,6 +7,7 @@ test("the focused catalog maps both patient signals to reference images", () => 
   assert.equal(PATIENT_SIGNALS.length, 2);
   for (const scenery of SCENERIES) {
     assert.match(scenery.image ?? "", /^\/scenery-concepts\/.+\.png$/);
+    assert.match(scenery.previewAudio, /^\/audio\/.+-loop\.mp3$/);
     assert.ok(scenery.audioPrompt.length > 20);
   }
   assert.equal(patientSignalForBpm(18).sceneId, "still-lake");
