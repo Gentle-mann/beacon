@@ -20,6 +20,7 @@ export function BeaconExperience() {
   configRef.current = config;
   const [muted, setMuted] = useState(true);
   const [mediaPlaying, setMediaPlaying] = useState(false);
+  const [preferLocalScene, setPreferLocalScene] = useState(false);
   const [runtime] = useState(() => {
     let controller: ExperienceController;
     const transport = createExperienceTransport({
@@ -46,7 +47,7 @@ export function BeaconExperience() {
     return { controller, transport };
   });
   const state = useSyncExternalStore(runtime.controller.subscribe, runtime.controller.getSnapshot, runtime.controller.getSnapshot);
-  const liveMediaPlaying = state.mode === "live" && state.status === "running" && state.framesSeen && mediaPlaying;
+  const liveMediaPlaying = state.mode === "live" && state.status === "running" && state.framesSeen && mediaPlaying && !preferLocalScene;
 
   useEffect(() => {
     const abort = new AbortController();
@@ -102,6 +103,7 @@ export function BeaconExperience() {
     const response = patientSignalForBpm(startBpm);
     runtime.controller.setScene(response.sceneId);
     runtime.controller.setMotion(response.motion);
+    setPreferLocalScene(false);
     if (breath.micStatus === "off") void breath.startMic();
     setMediaPlaying(false);
     void runtime.controller.start({ mode, seed: mode === "live" ? config.lockedSeed : null, startBpm, sceneId: response.sceneId });
@@ -109,11 +111,13 @@ export function BeaconExperience() {
   function setPatientSignal(signalId: PatientSignalId) {
     const signal = PATIENT_SIGNALS.find((option) => option.id === signalId) ?? PATIENT_SIGNALS[1];
     breath.setManualBpm(signal.bpm);
+    setPreferLocalScene(true);
     runtime.controller.setMotion(signal.motion);
     runtime.controller.setScene(signal.sceneId);
   }
   function setManualBpm(bpm: number) {
     breath.setManualBpm(bpm);
+    setPreferLocalScene(true);
     const response = patientSignalForBpm(bpm);
     runtime.controller.setMotion(response.motion);
     runtime.controller.setScene(response.sceneId);
@@ -127,20 +131,24 @@ export function BeaconExperience() {
     micStatus={breath.micStatus}
     micMessage={breath.message || (breath.micStatus === "listening" ? breath.snapshot.mode === "mic" ? `${breath.snapshot.bpm.toFixed(1)} BPM detected. The scene responds as your pace changes.` : "Listening for steady breaths. The current scene stays in place until there is a usable estimate." : "")}
     onStart={start}
-    onStop={() => { breath.stopMic(); void runtime.controller.stop(); }}
+    onStop={() => { breath.stopMic(); setPreferLocalScene(false); void runtime.controller.stop(); }}
     onGuide={runtime.controller.setGuide}
     onMotion={runtime.controller.setMotion}
     onPatientSignal={setPatientSignal}
     onManualBpm={setManualBpm}
     onMicStart={() => {
       const current = runtime.controller.getSnapshot();
-      if (!current.cleanupPending && !["connecting", "preparing", "stopping"].includes(current.status)) void breath.startMic();
+      if (!current.cleanupPending && !["connecting", "preparing", "stopping"].includes(current.status)) {
+        setPreferLocalScene(false);
+        void breath.startMic();
+      }
     }}
     onMicStop={breath.stopMic}
     muted={muted}
     onToggleMuted={() => setMuted((current) => !current)}
     ambientAudio={<audio ref={ambientAudio} src={getScenery(state.sceneId).previewAudio} loop preload="auto" muted={muted} aria-label="Ambient scene sound" />}
     breathMonitor={<PatientBreathTrace bpm={breath.snapshot.bpm} sourceMode={breath.snapshot.mode} micStatus={breath.micStatus} reading={breath.reading} activity={breath.activity} waveform={breath.waveform} />}
+    preferLocalScene={preferLocalScene}
     video={<video ref={video} autoPlay playsInline muted={muted} onPlaying={() => setMediaPlaying(true)} onWaiting={() => setMediaPlaying(false)} onStalled={() => {
       setMediaPlaying(false);
       const current = runtime.controller.getSnapshot();

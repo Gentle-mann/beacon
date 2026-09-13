@@ -60,7 +60,7 @@ test("arms with supplied seed, catches synchronous conditions event, and needs m
   assert.equal(f.commands[0].data.seed, 123);
   assert.equal(f.controller.getSnapshot().guideEnabled, false);
   assert.equal(f.controller.getSnapshot().sceneId, "willow-breeze");
-  assert.match(String(f.commands.find((item) => item.name === "set_prompt")?.data.prompt), /mature willow/i);
+  assert.match(String(f.commands.find((item) => item.name === "set_prompt")?.data.prompt), /clear mature healthy green willow/i);
 });
 
 test("reference-image conditioning completes before live scene commands", async () => {
@@ -76,10 +76,10 @@ test("reference-image conditioning completes before live scene commands", async 
   f.transport.sendCommand = async (name, data) => { sequence.push(name); return original(name, data); };
   const starting = f.start("willow-breeze");
   await flush();
-  assert.deepEqual(sequence, ["image:willow-breeze.png"]);
+  assert.deepEqual(sequence, ["image:willow-breeze-v2.png"]);
   imageReady.resolve();
   await starting;
-  assert.deepEqual(sequence, ["image:willow-breeze.png", "set_seed", "set_audio_prompt", "set_prompt", "start"]);
+  assert.deepEqual(sequence, ["image:willow-breeze-v2.png", "set_seed", "set_audio_prompt", "set_prompt", "start"]);
 });
 
 test("a state snapshot from before set_image cannot satisfy image conditioning", async () => {
