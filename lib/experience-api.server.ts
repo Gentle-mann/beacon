@@ -49,7 +49,20 @@ export function isSameOriginExperienceRequest(request: Request): boolean {
   const site = request.headers.get("sec-fetch-site");
   if (site && site !== "same-origin" && site !== "none") return false;
   const origin = request.headers.get("origin");
-  if (origin !== null) return origin === new URL(request.url).origin;
+  if (origin !== null) {
+    try {
+      const parsedOrigin = new URL(origin);
+      const requestUrl = new URL(request.url);
+      // Next can normalize request.url to localhost even when the browser used
+      // 127.0.0.1. The Host header retains the public origin the browser saw.
+      const requestHost = request.headers.get("host") ?? requestUrl.host;
+      const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",", 1)[0]?.trim();
+      const requestProtocol = forwardedProtocol ? `${forwardedProtocol}:` : requestUrl.protocol;
+      return parsedOrigin.protocol === requestProtocol && parsedOrigin.host === requestHost;
+    } catch {
+      return false;
+    }
+  }
   return site === "same-origin";
 }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ExperienceScreen } from "@/components/experience-screen";
+import { PatientBreathTrace } from "@/components/patient-breath-trace";
 import { useBreathSource } from "@/hooks/use-breath-source";
 import { createExperienceController, type ExperienceController, type ExperienceMode } from "@/lib/experience-controller";
 import { createExperienceTransport } from "@/lib/experience-transport";
@@ -137,6 +138,7 @@ export function BeaconExperience() {
     muted={muted}
     onToggleMuted={() => setMuted((current) => !current)}
     ambientAudio={<audio ref={ambientAudio} src={getScenery(state.sceneId).previewAudio} loop preload="auto" muted={muted} aria-label="Ambient scene sound" />}
+    breathMonitor={<PatientBreathTrace bpm={breath.snapshot.bpm} sourceMode={breath.snapshot.mode} micStatus={breath.micStatus} reading={breath.reading} waveform={breath.waveform} />}
     video={<video ref={video} autoPlay playsInline muted={muted} onPlaying={() => setMediaPlaying(true)} onWaiting={() => setMediaPlaying(false)} onStalled={() => {
       setMediaPlaying(false);
       const current = runtime.controller.getSnapshot();

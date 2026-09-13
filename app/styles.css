@@ -533,7 +533,7 @@ a { color: #b8f0cb; }
 .mic-status { font-size: 0.8rem; line-height: 1.5; min-height: 2.4em; color: #b0ada7; }
 .mic-status.alert { color: var(--alert); }
 .waveform-heading { display: flex; justify-content: space-between; gap: 12px; margin: 24px 0 10px; font-size: 0.67rem; color: var(--dim); flex-wrap: wrap; }
-.breath-waveform { display: block; width: 100%; height: 160px; border: 1px solid var(--line); border-radius: 8px; background: #0c0e0d; margin-bottom: 14px; }
+.breath-waveform { --breath-grid-color: #26262a; --breath-trace-color: #6fd38a; display: block; width: 100%; height: 160px; border: 1px solid var(--line); border-radius: 8px; background: #0c0e0d; margin-bottom: 14px; }
 .breath-card .muted { line-height: 1.55; }
 .ramp-live { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .ramp-live .bpm-readout { margin: 14px 0; }

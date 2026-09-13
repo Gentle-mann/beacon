@@ -62,6 +62,9 @@ test("live is disabled by default and a local preview completes at 90 seconds th
   await expect(guide(page)).not.toBeChecked();
   await expect(page.getByText("Willow by the water · local reference image", { exact: true })).toBeVisible();
   await expect(page.locator(".experience-intro")).toHaveCount(0);
+  const breathMonitor = page.getByLabel("Live breathing monitor");
+  await expect(breathMonitor.getByRole("img", { name: /Live breathing amplitude/ })).toBeVisible();
+  await expect(breathMonitor.getByRole("status")).toHaveText("Mic starts with session");
   await startPreview(page).click();
   await expect(stopSession(page)).toBeVisible();
   await expect(page.locator("main")).toHaveAttribute("data-status", "running");

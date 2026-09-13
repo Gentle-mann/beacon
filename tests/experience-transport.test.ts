@@ -167,12 +167,12 @@ test("Stop during a pending reference upload prevents set_image", async () => {
   assert.equal(f.client.commands.some((item) => item.name === "set_image"), false);
 });
 
-test("live connection checks the configured seed and reattaches the same client with one attempt and one token", async () => {
+test("live connection checks the configured seed and uses one scoped token", async () => {
   const f = fixture();
   try {
     await f.transport.connect();
     assert.deepEqual(f.loadedTokens, [TOKEN.jwt]);
-    assert.deepEqual(f.client.connectCalls, [[undefined, { maxAttempts: 1 }]]);
+    assert.deepEqual(f.client.connectCalls, [[]]);
     assert.deepEqual(f.statuses, ["ready"]);
     const reply = await f.transport.sendCommand("set_seed", { seed: 17 });
     assert.deepEqual(f.client.commands, [{ name: "set_seed", data: { seed: 17 } }]);
@@ -279,6 +279,14 @@ test("SDK error callbacks use generic UI text and cannot leak raw error details"
   await f.transport.close();
   f.client.emit("error", new Error(raw));
   assert.equal(f.errors.length, 1, "closed leases no longer forward errors");
+});
+
+test("recoverable SDK events do not abort a connection that is still retrying", async () => {
+  const f = fixture();
+  await f.transport.connect();
+  f.client.emit("error", { code: "REQUEST_TIMEOUT", operation: "connect", recoverable: true });
+  assert.deepEqual(f.errors, []);
+  await f.transport.close();
 });
 
 test("a client finishing its lazy load after Stop is disconnected without ever connecting", async () => {

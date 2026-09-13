@@ -24,6 +24,16 @@ type Options = {
   loadClient?: (jwt: string) => Promise<Client>;
 };
 
+function safeReactorErrorDetails(value: unknown) {
+  if (!value || typeof value !== "object") return { code: "UNKNOWN", operation: "unknown", recoverable: false };
+  const candidate = value as { code?: unknown; operation?: unknown; recoverable?: unknown };
+  return {
+    code: typeof candidate.code === "string" ? candidate.code.slice(0, 64) : "UNKNOWN",
+    operation: typeof candidate.operation === "string" ? candidate.operation.slice(0, 64) : "unknown",
+    recoverable: candidate.recoverable === true,
+  };
+}
+
 /** Each run owns its client, JWT and session ID. No account-level APIs are used. */
 export function createExperienceTransport(options: Options): ExperienceTransport & { pageHide(): void } {
   const fetcher = options.fetcher ?? fetch;
@@ -87,7 +97,7 @@ export function createExperienceTransport(options: Options): ExperienceTransport
       }
       const createClient = options.loadClient ?? (async (jwt: string) => {
         const { Reactor } = await import("@reactor-team/js-sdk");
-        return new Reactor({ apiUrl: "https://api.reactor.inc", modelName: ORBIS_MODEL_NAME, modelTracks: [...ORBIS_TRACKS], jwt, maxSessionAttempts: 1, maxSdpAttempts: 1, readyTimeoutMs: 30_000, controlRequestTimeoutMs: 4_000, logLevel: "error" });
+        return new Reactor({ apiUrl: "https://api.reactor.inc", modelName: ORBIS_MODEL_NAME, modelTracks: [...ORBIS_TRACKS], jwt, readyTimeoutMs: 30_000, logLevel: "error" });
       });
       lease.client = await createClient(result.jwt);
       if (lease.cancelled) { lease.sdkClose = null; return; }
@@ -95,7 +105,16 @@ export function createExperienceTransport(options: Options): ExperienceTransport
       const usable = () => current === lease && !lease.cancelled;
       const status = (value: string) => { if (usable()) options.events.onTransportStatus(value); };
       const message = (value: unknown) => { if (usable()) options.events.onMessage(value); };
-      const error = () => { if (usable()) options.events.onError("The live connection reported an error. You can continue with the calm preview."); };
+      const error = (cause: unknown) => {
+        if (!usable()) return;
+        const details = safeReactorErrorDetails(cause);
+        console.warn(`[Beacon live] Reactor event ${JSON.stringify(details)}`);
+        // The SDK can emit a recoverable timeout while its own connect/retry
+        // path is still active. Transport status and the awaited operation are
+        // the source of truth for whether the session actually failed.
+        if (details.recoverable) return;
+        options.events.onError("The live connection reported an error. You can continue with the calm preview.");
+      };
       const session = (value: string | undefined) => {
         if (value) lease.sessionId = value;
         if (lease.cancelled && value) void closeLease(lease);
@@ -121,7 +140,9 @@ export function createExperienceTransport(options: Options): ExperienceTransport
       client.on("error", error);
       client.on("trackReceived", track);
       lease.detach = [() => client.off("statusChanged", status), () => client.off("sessionIdChanged", session), () => client.off("message", message), () => client.off("error", error), () => client.off("trackReceived", track)];
-      await client.connect(undefined, { maxAttempts: 1 });
+      // Keep the SDK's connection retries and control timeout. The server JWT
+      // still caps this browser to one successful, 120-second model session.
+      await client.connect();
     } catch {
       // SDK/provider diagnostics may contain private transport or token details.
       throw new Error(failureMessage);

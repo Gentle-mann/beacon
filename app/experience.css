@@ -93,6 +93,13 @@
 .experience-signal-picker { display: grid; grid-template-columns: 155px minmax(0, 1fr); gap: 14px; align-items: center; padding: 11px 14px 11px 20px; border-bottom: 1px solid var(--experience-line); }
 .experience-signal-heading > .experience-overline { margin-bottom: 6px; color: #dce3cd; font-size: 8px; letter-spacing: 1.7px; }
 .experience-signal-heading > span:last-child { display: block; color: #b9caba; font-size: 9px; line-height: 1.5; }
+.experience-breath-monitor { display: grid; grid-template-columns: 47px minmax(0, 1fr); gap: 4px 7px; align-items: end; width: 100%; margin-bottom: 5px; }
+.experience-breath-readout { align-self: center; }
+.experience-breath-readout .experience-overline { color: #dce3cd; font-size: 7px; letter-spacing: 1.35px; }
+.experience-breath-readout strong { display: block; margin-top: 1px; color: #f3f0df; font: normal 18px/1 Georgia, "Times New Roman", serif; font-variant-numeric: tabular-nums; }
+.experience-breath-readout strong small { font: 7px "Avenir Next", Avenir, sans-serif; color: #b9caba; }
+.experience-breath-waveform { --breath-grid-color: #e8efdf12; --breath-trace-color: #dfe8c5; display: block; width: 100%; height: 34px; border-bottom: 1px solid #dce6d027; }
+.experience-breath-status { grid-column: 1 / -1; color: #b9caba; font-size: 7px; line-height: 1.3; letter-spacing: .35px; text-transform: uppercase; }
 .experience-signal-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; min-width: 0; }
 .experience-signal-options button { position: relative; display: grid; grid-template-columns: 72px minmax(100px, .75fr) minmax(130px, 1fr); gap: 10px; align-items: center; min-width: 0; padding: 6px; border: 1px solid #e3ead023; border-radius: 8px; background: #d9e5d207; color: #cbd8c7; cursor: pointer; text-align: left; }
 .experience-signal-options button:hover:not(:disabled) { background: #d9e5d211; border-color: #e3ead044; }
@@ -214,7 +221,8 @@
   .experience-control-main { display: block; padding: 22px 20px 19px; }
   .experience-signal-picker { display: block; padding: 14px 16px; }
   .experience-signal-heading { display: flex; justify-content: space-between; gap: 12px; padding-inline: 4px; }
-  .experience-signal-heading > span:last-child { max-width: 58%; text-align: right; }
+  .experience-signal-heading > span:last-child { display: none; }
+  .experience-breath-monitor { max-width: 210px; margin-bottom: 0; }
   .experience-signal-options { margin-top: 10px; }
   .experience-signal-options button { grid-template-columns: 62px minmax(0, 1fr); gap: 9px; padding: 6px; }
   .experience-signal-image { width: 62px; }
