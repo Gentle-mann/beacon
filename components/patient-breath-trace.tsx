@@ -2,6 +2,7 @@
 
 import type { RefObject } from "react";
 import { BreathWaveform, type BreathWaveformPoint } from "@/components/breath-waveform";
+import type { BreathActivity } from "@/lib/breath-activity";
 import type { BreathReading } from "@/lib/breath-detector";
 
 export function PatientBreathTrace({
@@ -9,22 +10,23 @@ export function PatientBreathTrace({
   sourceMode,
   micStatus,
   reading,
+  activity,
   waveform,
 }: {
   bpm: number;
   sourceMode: "mic" | "slider";
   micStatus: "off" | "requesting" | "listening" | "error";
   reading: BreathReading;
+  activity: BreathActivity;
   waveform: RefObject<BreathWaveformPoint[]>;
 }) {
   const detected = micStatus === "listening" && sourceMode === "mic";
-  const status = micStatus === "requesting"
-    ? "Waiting for microphone"
-    : micStatus === "error"
-      ? "Microphone unavailable"
-      : detected
-        ? reading.airflow === "rising" ? "Breath rising" : "Breath settling"
-        : micStatus === "listening" ? "Finding your rhythm" : "Mic starts with session";
+  let status = "Mic starts with session";
+  if (micStatus === "requesting") status = "Waiting for microphone";
+  else if (micStatus === "error") status = "Microphone unavailable";
+  else if (activity === "active") status = "Fast breath detected · cloud scene";
+  else if (detected) status = reading.airflow === "rising" ? "Breath rising" : "Breath settling";
+  else if (micStatus === "listening") status = "Listening · tree scene";
 
   return <div className="experience-breath-monitor" aria-label="Live breathing monitor">
     <div className="experience-breath-readout">

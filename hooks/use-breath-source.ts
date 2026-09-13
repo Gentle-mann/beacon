@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { BreathActivityLatch, type BreathActivity } from "@/lib/breath-activity";
 import { BreathDetector, rmsAmplitude, type BreathReading } from "@/lib/breath-detector";
 import { createBreathSource } from "@/lib/breath-source";
 
@@ -13,6 +14,7 @@ export function useBreathSource() {
   const [micStatus, setMicStatus] = useState<MicStatus>("off");
   const [message, setMessage] = useState("");
   const [reading, setReading] = useState(EMPTY);
+  const [activity, setActivity] = useState<BreathActivity>("quiet");
   const waveform = useRef<{ at: number; value: number }[]>([]);
   const requestId = useRef(0);
   const release = useRef<(() => void) | null>(null);
@@ -24,6 +26,7 @@ export function useBreathSource() {
     source.setMicBpm(null);
     waveform.current = [];
     setReading(EMPTY);
+    setActivity("quiet");
     setMicStatus("off");
     setMessage("");
   }, [source]);
@@ -74,6 +77,7 @@ export function useBreathSource() {
       source.setMicBpm(null);
       waveform.current = [];
       setReading(EMPTY);
+      setActivity("quiet");
       setMicStatus("error");
       setMessage(text);
     };
@@ -104,6 +108,8 @@ export function useBreathSource() {
       input.connect(analyser); // Never connect the microphone to speakers.
       const samples = new Float32Array(analyser.fftSize);
       const detector = new BreathDetector();
+      const activityLatch = new BreathActivityLatch();
+      let lastActivity: BreathActivity = "quiet";
       let lastSample = -Infinity;
       setMicStatus("listening");
       stream.getTracks().forEach((track) => {
@@ -119,9 +125,14 @@ export function useBreathSource() {
           try {
             analyser!.getFloatTimeDomainData(samples);
             const next = detector.update(rmsAmplitude(samples), at);
+            const nextActivity = activityLatch.update(next, at);
             waveform.current = [...waveform.current.filter((point) => at - point.at <= 30_000), { at, value: next.envelope }];
             source.setMicBpm(next.speechSuspect ? null : next.bpm);
             setReading(next);
+            if (nextActivity !== lastActivity) {
+              lastActivity = nextActivity;
+              setActivity(nextActivity);
+            }
           } catch {
             fail("Microphone analysis stopped. The manual slider is active.");
             return;
@@ -141,5 +152,5 @@ export function useBreathSource() {
     source.setManualBpm(bpm);
   }, [source, stopMic]);
 
-  return { source, snapshot, micStatus, message, reading, waveform, startMic, stopMic, setManualBpm };
+  return { source, snapshot, micStatus, message, reading, activity, waveform, startMic, stopMic, setManualBpm };
 }

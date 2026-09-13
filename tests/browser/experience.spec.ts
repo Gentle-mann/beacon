@@ -112,6 +112,50 @@ test("patient signals choose distinct responses and remain available during a se
   await expect(faster).toBeEnabled();
 });
 
+test("live breath activity switches to clouds immediately and quiet returns to the tree", async ({ page }) => {
+  await page.addInitScript(() => {
+    let amplitude = 0;
+    const track = { readyState: "live", onended: null as (() => void) | null, stop() { this.readyState = "ended"; } };
+    class ResponsiveAudioContext {
+      state = "running";
+      onstatechange: (() => void) | null = null;
+      async resume() {}
+      async close() { this.state = "closed"; }
+      createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
+      createAnalyser() {
+        return {
+          fftSize: 2048,
+          getFloatTimeDomainData(buffer: Float32Array) {
+            for (let i = 0; i < buffer.length; i++) buffer[i] = i % 2 ? amplitude : -amplitude;
+          },
+          disconnect() {},
+        };
+      }
+    }
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: ResponsiveAudioContext });
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: async () => ({ getTracks: () => [track], getAudioTracks: () => [track] }) },
+    });
+    Object.defineProperty(window, "__setDemoMicAmplitude", {
+      configurable: true,
+      value: (next: number) => { amplitude = next; },
+    });
+  });
+  await page.goto("/");
+  await startPreview(page).click();
+  const monitor = page.getByLabel("Live breathing monitor");
+  await expect(monitor.getByRole("status")).toHaveText("Listening · tree scene");
+  await page.waitForTimeout(1_600);
+  await page.evaluate(() => (window as unknown as { __setDemoMicAmplitude(value: number): void }).__setDemoMicAmplitude(0.2));
+  await expect(monitor.getByRole("status")).toHaveText("Fast breath detected · cloud scene");
+  await expect(page.locator("main")).toHaveAttribute("data-scene", "still-lake");
+  await page.evaluate(() => (window as unknown as { __setDemoMicAmplitude(value: number): void }).__setDemoMicAmplitude(0));
+  await expect(monitor.getByRole("status")).toHaveText("Listening · tree scene", { timeout: 5_000 });
+  await expect(page.locator("main")).toHaveAttribute("data-scene", "willow-breeze");
+  await stopSession(page).click();
+});
+
 test("Stop ends preview immediately and later timer ticks cannot revive the scene", async ({ page }) => {
   await page.clock.install();
   await page.goto("/");
