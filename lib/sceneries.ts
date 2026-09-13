@@ -12,6 +12,7 @@ export type Scenery = {
   description: string;
   image: string;
   imageName: string;
+  previewAudio: string;
   alt: string;
   setting: string;
   camera: string;
@@ -46,6 +47,7 @@ export const SCENERIES: readonly Scenery[] = [
     description: "An almost motionless horizon for an elevated breathing signal.",
     image: "/scenery-concepts/protective-still-lake.png",
     imageName: "protective-still-lake.png",
+    previewAudio: "/audio/still-lake-ambience.mp3",
     alt: "A still misty lake between distant mountains at dawn",
     setting: "wide mist-covered mountain lake at quiet dawn, muted blue-grey water and soft distant hills",
     camera: COMMON_CAMERA,
@@ -66,10 +68,11 @@ export const SCENERIES: readonly Scenery[] = [
     description: "A gentle breeze through leaves for a baseline breathing signal.",
     image: "/scenery-concepts/willow-breeze.png",
     imageName: "willow-breeze.png",
+    previewAudio: "/audio/willow-ambience.mp3",
     alt: "A willow tree beside a quiet lake in warm morning light",
     setting: "mature willow beside a quiet mountain lake in warm diffuse morning light, long soft leaves filling the foreground",
     camera: COMMON_CAMERA,
-    audioPrompt: "Soft wind moving through willow leaves beside quiet water, no voices, no melody, no sudden sounds.",
+    audioPrompt: "Soft wind moving through willow leaves beside quiet water, with occasional distant gentle birdsong, no voices, no melody, no sudden sounds.",
     motion: {
       active: "A gentle breeze moves through the willow in soft coordinated waves",
       steady: "Long willow leaves sway together in a slow even rhythm",

@@ -26,6 +26,7 @@ export type ExperienceScreenProps = {
   muted: boolean;
   onToggleMuted(): void;
   video: ReactNode;
+  ambientAudio: ReactNode;
 };
 
 function BeaconMark() {
@@ -78,11 +79,17 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
       ? `${scenery.label} · local view while live video is unavailable`
       : `${scenery.label} · local reference image`;
 
-  return <main className={`experience-screen ${running ? "experience-is-running" : ""} ${busy || state.cleanupPending ? "experience-is-active" : ""}`} data-motion={state.motion} data-live-visible={liveVisible} data-reference-image={Boolean(scenery.image)}>
+  return <main className={`experience-screen ${running ? "experience-is-running" : ""} ${busy || state.cleanupPending ? "experience-is-active" : ""}`} data-status={state.status} data-scene={scenery.id} data-motion={state.motion} data-live-visible={liveVisible} data-reference-image={Boolean(scenery.image)}>
     <div className="experience-scene">
-      <Image className="experience-scene-image" src={scenery.image} alt="" fill sizes="100vw" priority />
+      <Image className="experience-scene-image experience-scene-base" src={scenery.image} alt="" fill sizes="100vw" priority />
+      <div className="experience-scene-alive" aria-hidden="true">
+        <Image className="experience-scene-image experience-scene-echo" src={scenery.image} alt="" fill sizes="100vw" />
+        <span className="experience-cloud-drift" />
+        <span className="experience-light-drift" />
+      </div>
       {/* Keep the actual player mounted through preparation so it can deliver its first-frame event. */}
       <div className="experience-live-video" aria-hidden={!liveVisible} inert={!liveVisible} style={{ opacity: liveVisible ? 1 : 0 }}>{props.video}</div>
+      <div className="experience-ambient-audio">{props.ambientAudio}</div>
       <div className="experience-shade" />
     </div>
 
@@ -94,11 +101,12 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
       </div>
     </header>
 
+    <p className="experience-status-sr" role="status">{heading.title} {heading.description}</p>
     <section className="experience-center" aria-label="Your moment">
       {running && state.guideEnabled ? <div className="experience-guide">
         <div className="experience-guide-orb" style={guideStyle} aria-hidden="true"><div /></div>
         <div className="experience-guide-copy"><span className="experience-overline">An optional rhythm</span><h1>{phase === "inhale" ? "Breathe in" : "Breathe out"}</h1><p>Only follow along if it feels comfortable.</p></div>
-      </div> : <div className="experience-intro"><span className="experience-overline">{running ? "This time is yours" : `A quiet moment · ${scenery.label}`}</span><h1>{heading.title}</h1><p>{heading.description}</p></div>}
+      </div> : null}
       {(state.cleanupPending || state.status === "connecting" || state.status === "preparing" || state.status === "recovering") ? <div className="experience-connection" role="status" data-retry={closureUnconfirmed}><span aria-hidden="true" />{closureUnconfirmed ? "Session closure not confirmed" : state.cleanupPending ? "Closing live session…" : state.status === "recovering" ? "Reconnecting" : "Preparing live scene"}</div> : null}
     </section>
 
@@ -125,9 +133,7 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
         </div>
         <div className="experience-control-main">
           <div className="experience-session-description">
-            <span className="experience-overline">{running ? "Your moment is unfolding" : state.status === "completed" ? "A little pause, complete" : "Make yourself comfortable"}</span>
-            <h2>{running ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")} remaining` : "Ninety seconds of somewhere quieter."}</h2>
-            <p>{running ? "There is nothing to get right." : "Explore the local preview, or open a live generated scene."}</p>
+            <h2>{running ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")} remaining` : state.status === "completed" ? "Ready for another moment" : "90-second experience"}</h2>
           </div>
           <div className="experience-start-actions">
             {busy || state.cleanupPending ? <span className="experience-active-note">{closureUnconfirmed ? "Closure not confirmed. Retry Stop below." : state.cleanupPending || state.status === "stopping" ? "Closing live session…" : "You can stop at any time."}</span> : <>
@@ -139,16 +145,18 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
         {running || state.status === "recovering" ? <div className="experience-progress" role="progressbar" aria-label="Session progress" aria-valuemin={0} aria-valuemax={90} aria-valuenow={Math.floor(elapsed / 1000)}><span style={{ width: `${elapsed / ARC_DURATION_MS * 100}%` }} /></div> : null}
         {!props.liveEnabled && canStart ? <p className="experience-unavailable" id="experience-live-unavailable">{props.liveUnavailableReason || "Live sessions are not configured yet. The local preview is ready."}</p> : null}
         {state.error ? <p className="experience-error" role="alert">{state.error}</p> : null}
-        <div className="experience-preferences">
-          <button type="button" className="experience-guide-toggle" role="switch" aria-checked={state.guideEnabled} onClick={() => props.onGuide(!state.guideEnabled)}><span className="experience-switch" aria-hidden="true"><span /></span><span>Breathing guide <small>optional</small></span></button>
-          <div className="experience-motion"><span>Scene motion</span><div className="experience-segmented" role="group" aria-label="Scene motion"><button type="button" aria-pressed={state.motion === "gentle"} onClick={() => props.onMotion("gentle")}>Gentle</button><button type="button" aria-pressed={state.motion === "still"} onClick={() => props.onMotion("still")}>Still</button></div></div>
-          <span className="experience-sound-note">{props.muted ? "Sound off" : liveVisible ? "Sound on" : "Local preview is silent"}</span>
-        </div>
-        <details className="experience-personalize">
-          <summary>Patient signal input <span aria-hidden="true">+</span></summary>
-          <div className="experience-personalize-content">
-            <div className="experience-pace"><label htmlFor="experience-manual-bpm">Breathing pace <output>{sourceBpm.toFixed(1)} <span>breaths / min</span></output></label><input id="experience-manual-bpm" type="range" min="4" max="20" step=".5" value={sourceBpm} onChange={(event) => props.onManualBpm(Number(event.target.value))} /><div className="experience-range-labels"><span>Slower · 4</span><span>20 · Faster</span></div><p>{running ? "Changes update the scene. The optional guide keeps the rhythm captured at Start." : "The guide begins at this pace. You can always breathe naturally."}</p></div>
-            <div className="experience-mic"><span className="experience-mic-label">{sourceMode === "mic" ? "Live microphone estimate" : "Manual pace selected"}</span><p>{running ? "The microphone can estimate breathing throughout this session and switch the scene automatically. Audio stays on this device." : "Use your microphone to let breathing estimates update the scene during the session. Audio stays on this device."}</p><div className="experience-mic-actions">{micActive ? <button type="button" className="experience-text-button" onClick={props.onMicStop}>{micStatus === "requesting" ? "Cancel microphone" : "Stop microphone"}</button> : <button type="button" className="experience-text-button" onClick={props.onMicStart} disabled={signalLocked}>Use microphone</button>}<span role="status">{props.micMessage || (micStatus === "requesting" ? "Waiting for permission…" : micStatus === "listening" ? "Listening locally" : "Microphone off")}</span></div></div>
+        <details className="experience-personalize" key={running ? "active-controls" : "ready-controls"}>
+          <summary>Breathing, motion & sensors <span aria-hidden="true">+</span></summary>
+          <div className="experience-settings-content">
+            <div className="experience-preferences">
+              <button type="button" className="experience-guide-toggle" role="switch" aria-checked={state.guideEnabled} onClick={() => props.onGuide(!state.guideEnabled)}><span className="experience-switch" aria-hidden="true"><span /></span><span>Breathing guide <small>optional</small></span></button>
+              <div className="experience-motion"><span>Scene motion</span><div className="experience-segmented" role="group" aria-label="Scene motion"><button type="button" aria-pressed={state.motion === "gentle"} onClick={() => props.onMotion("gentle")}>Gentle</button><button type="button" aria-pressed={state.motion === "still"} onClick={() => props.onMotion("still")}>Still</button></div></div>
+              <span className="experience-sound-note">{props.muted ? "Sound off" : liveVisible ? "Live sound on" : "Ambient sound on"}</span>
+            </div>
+            <div className="experience-personalize-content">
+              <div className="experience-pace"><label htmlFor="experience-manual-bpm">Breathing pace <output>{sourceBpm.toFixed(1)} <span>breaths / min</span></output></label><input id="experience-manual-bpm" type="range" min="4" max="20" step=".5" value={sourceBpm} onChange={(event) => props.onManualBpm(Number(event.target.value))} /><div className="experience-range-labels"><span>Slower · 4</span><span>20 · Faster</span></div><p>{running ? "Changes update the scene. The optional guide keeps the rhythm captured at Start." : "The guide begins at this pace. You can always breathe naturally."}</p></div>
+              <div className="experience-mic"><span className="experience-mic-label">{sourceMode === "mic" ? "Live microphone estimate" : "Manual pace selected"}</span><p>{running ? "The microphone can estimate breathing throughout this session and switch the scene automatically. Audio stays on this device." : "Use your microphone to let breathing estimates update the scene during the session. Audio stays on this device."}</p><div className="experience-mic-actions">{micActive ? <button type="button" className="experience-text-button" onClick={props.onMicStop}>{micStatus === "requesting" ? "Cancel microphone" : "Stop microphone"}</button> : <button type="button" className="experience-text-button" onClick={props.onMicStart} disabled={signalLocked}>Use microphone</button>}<span role="status">{props.micMessage || (micStatus === "requesting" ? "Waiting for permission…" : micStatus === "listening" ? "Listening locally" : "Microphone off")}</span></div></div>
+            </div>
           </div>
         </details>
       </section>

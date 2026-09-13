@@ -6,13 +6,14 @@ import { useBreathSource } from "@/hooks/use-breath-source";
 import { createExperienceController, type ExperienceController, type ExperienceMode } from "@/lib/experience-controller";
 import { createExperienceTransport } from "@/lib/experience-transport";
 import type { ExperienceConfig } from "@/lib/experience-config";
-import { PATIENT_SIGNALS, patientSignalForBpm, type PatientSignalId } from "@/lib/sceneries";
+import { getScenery, PATIENT_SIGNALS, patientSignalForBpm, type PatientSignalId } from "@/lib/sceneries";
 
 const DEFAULT_CONFIG: ExperienceConfig = { liveEnabled: false, lockedSeed: null, arcDurationMs: 90_000, maxSessionDurationSeconds: 120, unavailableReason: "Checking live scene availability…" };
 
 export function BeaconExperience() {
   const breath = useBreathSource();
   const video = useRef<HTMLVideoElement>(null);
+  const ambientAudio = useRef<HTMLAudioElement>(null);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const configRef = useRef(config);
   configRef.current = config;
@@ -44,6 +45,7 @@ export function BeaconExperience() {
     return { controller, transport };
   });
   const state = useSyncExternalStore(runtime.controller.subscribe, runtime.controller.getSnapshot, runtime.controller.getSnapshot);
+  const liveMediaPlaying = state.mode === "live" && state.status === "running" && state.framesSeen && mediaPlaying;
 
   useEffect(() => {
     const abort = new AbortController();
@@ -79,6 +81,17 @@ export function BeaconExperience() {
     runtime.controller.setMotion(response.motion);
     runtime.controller.setScene(response.sceneId);
   }, [state.status, breath.micStatus, breath.snapshot.mode, breath.snapshot.bpm, runtime]);
+
+  useEffect(() => {
+    const audio = ambientAudio.current;
+    if (!audio) return;
+    audio.volume = state.sceneId === "still-lake" ? 0.26 : 0.34;
+    if (muted || liveMediaPlaying) {
+      audio.pause();
+      return;
+    }
+    void audio.play().catch(() => setMuted(true));
+  }, [muted, liveMediaPlaying, state.sceneId]);
 
   function start(mode: ExperienceMode) {
     if (mode === "live" && !config.liveEnabled) return;
@@ -123,6 +136,7 @@ export function BeaconExperience() {
     onMicStop={breath.stopMic}
     muted={muted}
     onToggleMuted={() => setMuted((current) => !current)}
+    ambientAudio={<audio ref={ambientAudio} src={getScenery(state.sceneId).previewAudio} loop preload="auto" muted={muted} aria-label="Ambient scene sound" />}
     video={<video ref={video} autoPlay playsInline muted={muted} onPlaying={() => setMediaPlaying(true)} onWaiting={() => setMediaPlaying(false)} onStalled={() => {
       setMediaPlaying(false);
       const current = runtime.controller.getSnapshot();
