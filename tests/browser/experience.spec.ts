@@ -93,7 +93,7 @@ test("patient signals choose distinct responses and remain available during a se
   await expect(pace(page)).toHaveValue("18");
   await expect(page.getByText("Still mist lake · local reference image", { exact: true })).toBeVisible();
   await expect(page.locator(".experience-scene-base")).toHaveAttribute("src", /protective-still-lake/);
-  await expect(page.locator("audio[aria-label=\"Ambient scene sound\"]")).toHaveAttribute("src", /still-lake-ambience/);
+  await expect(page.locator("audio[aria-label=\"Ambient scene sound\"]")).toHaveAttribute("src", /still-lake-loop/);
   await baseline.click();
   await expect(baseline).toHaveAttribute("aria-checked", "true");
   await expect(pace(page)).toHaveValue("12");
@@ -106,10 +106,29 @@ test("patient signals choose distinct responses and remain available during a se
   await baseline.click();
   await expect(baseline).toHaveAttribute("aria-checked", "true");
   await expect(page.locator(".experience-scene-base")).toHaveAttribute("src", /willow-breeze/);
-  await expect(page.locator("audio[aria-label=\"Ambient scene sound\"]")).toHaveAttribute("src", /willow-ambience/);
+  await expect(page.locator("audio[aria-label=\"Ambient scene sound\"]")).toHaveAttribute("src", /willow-breeze-loop/);
   await expect(page.locator("main")).toHaveAttribute("data-motion", "gentle");
   await stopSession(page).click();
   await expect(faster).toBeEnabled();
+});
+
+test("the willow canopy visibly sways over a continuous matching ambience", async ({ page }) => {
+  await page.goto("/");
+  const layers = page.locator(".experience-willow-layer");
+  await expect(layers).toHaveCount(3);
+  await expect(layers.first()).toHaveCSS("animation-name", /experience-willow/);
+  const initialTransform = await layers.first().evaluate((layer) => getComputedStyle(layer).transform);
+  await expect.poll(
+    () => layers.first().evaluate((layer) => getComputedStyle(layer).transform),
+    { message: "The foreground leaves should move instead of reading as a still image" },
+  ).not.toBe(initialTransform);
+
+  const sound = page.getByRole("button", { name: "Turn sound on", exact: true });
+  await sound.click();
+  const audio = page.locator("audio[aria-label=\"Ambient scene sound\"]");
+  await expect(audio).toHaveAttribute("src", /willow-breeze-loop/);
+  await expect(audio).toHaveAttribute("loop", "");
+  await expect.poll(() => audio.evaluate((element) => !(element as HTMLAudioElement).paused)).toBe(true);
 });
 
 test("live breath activity switches to clouds immediately and quiet returns to the tree", async ({ page }) => {

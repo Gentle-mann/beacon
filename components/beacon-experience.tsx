@@ -89,7 +89,7 @@ export function BeaconExperience() {
   useEffect(() => {
     const audio = ambientAudio.current;
     if (!audio) return;
-    audio.volume = state.sceneId === "still-lake" ? 0.26 : 0.34;
+    audio.volume = 0.3;
     if (muted || liveMediaPlaying) {
       audio.pause();
       return;
