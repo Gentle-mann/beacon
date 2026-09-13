@@ -5,6 +5,7 @@ import Image from "next/image";
 import { type CSSProperties, type ReactNode } from "react";
 import type { ExperienceSnapshot } from "@/lib/experience-controller";
 import { ARC_DURATION_MS, integratedBreathCycles, promptAt } from "@/lib/entrainment";
+import { shouldShowLiveMedia } from "@/lib/experience-view";
 import { PATIENT_SIGNALS, getScenery, patientSignalForBpm, type PatientSignalId } from "@/lib/sceneries";
 
 export type ExperienceScreenProps = {
@@ -28,6 +29,7 @@ export type ExperienceScreenProps = {
   video: ReactNode;
   ambientAudio: ReactNode;
   breathMonitor: ReactNode;
+  preferLocalScene: boolean;
 };
 
 function BeaconMark() {
@@ -62,7 +64,8 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
   const closureUnconfirmed = state.cleanupPending && state.status !== "stopping";
   const running = state.status === "running";
   const canStart = !busy && !state.cleanupPending;
-  const liveVisible = state.mode === "live" && running && state.framesSeen;
+  const localOverride = props.preferLocalScene && state.mode === "live" && running;
+  const liveVisible = shouldShowLiveMedia(state, props.preferLocalScene);
   const fallback = state.status === "fallback" || state.status === "recovering";
   const elapsed = Math.min(ARC_DURATION_MS, Math.max(0, state.elapsedMs));
   const remaining = Math.ceil((ARC_DURATION_MS - elapsed) / 1000);
@@ -73,12 +76,22 @@ export function ExperienceScreen(props: ExperienceScreenProps) {
   const guideStyle = { "--guide-scale": String(.82 + swell * .18) } as CSSProperties;
   const micActive = micStatus === "listening" || micStatus === "requesting";
   const patientSignal = PATIENT_SIGNALS.find((signal) => signal.sceneId === scenery.id) ?? patientSignalForBpm(sourceBpm);
-  const badge = liveVisible ? "Live scene" : state.status === "recovering" ? "Reconnecting · local view" : fallback ? "Calm fallback" : "Local preview";
+  const badge = liveVisible
+    ? "Live scene"
+    : localOverride
+      ? "Local fallback"
+      : state.status === "recovering"
+        ? "Reconnecting · local view"
+        : fallback
+          ? "Calm fallback"
+          : "Local preview";
   const origin = liveVisible
     ? `${scenery.label} · live generated environment`
-    : fallback
-      ? `${scenery.label} · local view while live video is unavailable`
-      : `${scenery.label} · local reference image`;
+    : localOverride
+      ? `${scenery.label} · local fallback`
+      : fallback
+        ? `${scenery.label} · local view while live video is unavailable`
+        : `${scenery.label} · local reference image`;
 
   return <main className={`experience-screen ${running ? "experience-is-running" : ""} ${busy || state.cleanupPending ? "experience-is-active" : ""}`} data-status={state.status} data-scene={scenery.id} data-motion={state.motion} data-live-visible={liveVisible} data-reference-image={Boolean(scenery.image)}>
     <div className="experience-scene">
